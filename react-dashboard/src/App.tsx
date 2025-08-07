@@ -3,7 +3,8 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import Dashboard from './components/Dashboard'
 import Profile from './components/Profile'
 import EditProfile from './components/EditProfile'
-import Files from './components/Files'
+import AkteForm from './components/forms/AkteForm'
+import AktenListe from './components/AktenListe'
 
 
 function App() {
@@ -46,10 +47,11 @@ function App() {
       <SignedIn>
         <Routes>
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/akten" element={<AktenListe />} />
+          <Route path="/akte-neu" element={<AkteForm />} />
+          <Route path="/akte-bearbeiten/:id" element={<AkteForm />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/edit-profile" element={<EditProfile />} />
-          <Route path="/files" element={<Files />} />
-
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

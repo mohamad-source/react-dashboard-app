@@ -42,7 +42,7 @@ const getMenuItems = (isAdmin: boolean) => [
   {
     title: 'Akten',
     icon: FileText,
-    href: '/files',
+    href: '/akten',
     description: 'Dateien und Dokumente verwalten'
   }
 ]
