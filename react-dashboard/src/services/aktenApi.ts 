@@ -246,6 +246,15 @@ class AktenApiService {
   }
 }
 
+async updateAkte(id, data) {
+  const response = await fetch(`/api/akten/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  })
+  return response.json()
+}
+
 // Singleton Instance
 export const aktenApi = new AktenApiService()
 

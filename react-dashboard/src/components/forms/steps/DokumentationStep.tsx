@@ -69,7 +69,9 @@ export default function DokumentationStep({
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
 
     // Kalkulation Info anzeigen
-    const selectedKalkulation = verfugbareKalkulationen.find(k => k.id.toString() === selectedKalkulationId)
+    const selectedKalkulation = Array.isArray(verfugbareKalkulationen) 
+    ? verfugbareKalkulationen.find(k => k.id.toString() === selectedKalkulationId)
+    : undefined
 
     // Section Checkbox Handler
     const handleSectionChange = (section: string, checked: boolean) => {
@@ -133,7 +135,7 @@ export default function DokumentationStep({
                 formData.append('selected_kalkulation_id', selectedKalkulationId)
             }
 
-            const response = await fetch(`/api/akten/${akteId}/dokumentation`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/akten/${akteId}/dokumentation`, {
                 method: 'POST',
                 body: formData
             })

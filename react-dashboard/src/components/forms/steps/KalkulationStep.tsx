@@ -34,9 +34,10 @@ interface KalkulationStepProps {
     kundendaten: KundendatenData
     isAkteSaved: boolean
     akteId?: number
+    onKalkulationComplete?: (azNumber: string) => void
 }
 
-export default function KalkulationStep({ kundendaten, isAkteSaved, akteId }: KalkulationStepProps) {
+export default function KalkulationStep({ kundendaten, isAkteSaved, akteId, onKalkulationComplete }: KalkulationStepProps) {
     const [isLoading, setIsLoading] = useState(false)
     const [isInitialized, setIsInitialized] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -44,12 +45,19 @@ export default function KalkulationStep({ kundendaten, isAkteSaved, akteId }: Ka
     const containerRef = useRef<HTMLDivElement>(null)
     const initializationRef = useRef<boolean>(false)
 
-
     // DAT-System initialisieren
     const initDATSystem = useCallback(async () => {
-        console.log('initDATSystem called')
+        console.log('initDATSystem called - initializationRef:', initializationRef.current, 'isLoading:', isLoading)
 
-        if (initializationRef.current || isLoading) return
+        if (initializationRef.current || isLoading) {
+            console.log('Bereits initialisiert oder lädt - Abbruch')
+            return
+        }
+
+        // Container leeren bevor neue Initialisierung
+        if (containerRef.current) {
+            containerRef.current.innerHTML = ''
+        }
 
         initializationRef.current = true
         setIsLoading(true)
@@ -189,6 +197,10 @@ export default function KalkulationStep({ kundendaten, isAkteSaved, akteId }: Ka
 
     // Callback für DAT-System
     const handleDATCallback = useCallback(async (azNumber: string) => {
+        console.log('=== handleDATCallback DEBUG ===')
+        console.log('azNumber:', azNumber)
+        console.log('akteId:', akteId)
+        
         if (!azNumber || !akteId) return
 
         try {
@@ -197,18 +209,36 @@ export default function KalkulationStep({ kundendaten, isAkteSaved, akteId }: Ka
             formData.append('az', azNumber)
             formData.append('akte_id', akteId.toString())
 
-            const response = await fetch(`/api/akten/${akteId}/kalkulation`, {
+            console.log('Sende Request an:', `/api/akten/${akteId}/kalkulation`)
+            console.log('FormData Inhalt:')
+            for (let pair of formData.entries()) {
+                console.log(pair[0] + ': ' + pair[1])
+            }
+
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/akten/${akteId}/kalkulation`, {
                 method: 'POST',
                 body: formData
             })
 
-            const data = await response.json()
+            console.log('Response Status:', response.status)
+            console.log('Response OK:', response.ok)
+            
+            const responseText = await response.text()
+            console.log('Response Text (raw):', responseText)
+
+            const data = JSON.parse(responseText)
+            console.log('Parsed Data:', data)
 
             if (data.success) {
                 alert('Kalkulation wurde erfolgreich erstellt!')
                 // Sphinx iFrame löschen
                 if (window.sphinx) {
                     window.sphinx.deleteIframe()
+                }
+                
+                // Zum nächsten Schritt wechseln
+                if (onKalkulationComplete) {
+                    onKalkulationComplete(azNumber)
                 }
             } else {
                 throw new Error(data.message || 'Fehler beim Erstellen der Kalkulation')
@@ -217,7 +247,7 @@ export default function KalkulationStep({ kundendaten, isAkteSaved, akteId }: Ka
             console.error('Kalkulations-Fehler:', error)
             alert('Fehler beim Erstellen der Kalkulation: ' + (error as Error).message)
         }
-    }, [akteId])
+    }, [akteId, onKalkulationComplete])
 
     // Globalen Callback setzen
     useEffect(() => {
@@ -259,11 +289,11 @@ export default function KalkulationStep({ kundendaten, isAkteSaved, akteId }: Ka
     }, [handleDATCallback])
 
     useEffect(() => {
-        if (isAkteSaved && akteId && !initializationRef.current) {
+        if (isAkteSaved && akteId && !initializationRef.current && !isLoading) {
+            console.log('Initialisiere DAT System - useEffect')
             initDATSystem()
         }
-    }, [isAkteSaved, akteId])
-
+    }, [isAkteSaved, akteId, isLoading, initDATSystem])
 
     const reloadDAT = () => {
         setIsInitialized(false)

@@ -273,19 +273,6 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
     }
   }
 
-  if (!isAkteSaved) {
-    return (
-      <div className="space-y-6">
-        <Alert>
-          <User className="h-4 w-4" />
-          <AlertDescription>
-            <strong>Hinweis:</strong> Bitte speichern Sie zuerst die Kundendaten, bevor Sie die Abtretung ausfüllen können.
-          </AlertDescription>
-        </Alert>
-      </div>
-    )
-  }
-
   // Wenn Abtretung bereits vorhanden ist - PDF-Ansicht anzeigen
   if (isAbtretungSigned) {
     return (

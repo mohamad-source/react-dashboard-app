@@ -26,9 +26,10 @@ interface UploadedImage {
 interface BilderStepProps {
     isAkteSaved: boolean
     akteId?: number
+    onImagesUpdate?: (images: UploadedImage[]) => void
 }
 
-export default function BilderStep({ isAkteSaved, akteId }: BilderStepProps) {
+export default function BilderStep({ isAkteSaved, akteId, onImagesUpdate }: BilderStepProps) {
     const [selectedFiles, setSelectedFiles] = useState<File[]>([])
     const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([])
     const [isDragOver, setIsDragOver] = useState(false)
@@ -58,6 +59,7 @@ export default function BilderStep({ isAkteSaved, akteId }: BilderStepProps) {
             
             if (data.success) {
                 setUploadedImages(data.bilder || [])
+                onImagesUpdate?.(data.bilder || [])
             }
         } catch (error) {
             console.error('Fehler beim Laden der Bilder:', error)

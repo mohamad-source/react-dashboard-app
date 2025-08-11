@@ -154,7 +154,7 @@ const extendedAktenApi = {
     
     async getBilder(akteId: number) {
         try {
-            const response = await fetch(`/api/akten/${akteId}/bilder`)
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/akten/${akteId}/bilder`)
             if (!response.ok) throw new Error('Bilder nicht gefunden')
             return response.json()
         } catch (error) {
@@ -165,7 +165,7 @@ const extendedAktenApi = {
 
     async getKalkulationen(akteId: number) {
         try {
-            const response = await fetch(`/api/akten/${akteId}/kalkulationen`)
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/akten/${akteId}/kalkulationen`)
             if (!response.ok) throw new Error('Kalkulationen nicht gefunden')
             return response.json()
         } catch (error) {
@@ -187,6 +187,8 @@ export default function AkteForm() {
     
     // Neue State-Variablen für Dokumentation
     const [bilder, setBilder] = useState<any[]>([])
+    const [uploadedImages, setUploadedImages] = useState<any[]>([])
+    const [kalkulationCompleted, setKalkulationCompleted] = useState(false)
     const [verfugbareKalkulationen, setVerfugbareKalkulationen] = useState<Kalkulation[]>([])
     const [akte, setAkte] = useState<Akte | null>(null)
     const [isAbtretungSigned, setIsAbtretungSigned] = useState(false)
@@ -268,16 +270,18 @@ export default function AkteForm() {
         }
 
         if (stepId === 'bilder') {
-            return !!savedAkteId
+            console.log('Bilder-Validierung - uploadedImages.length:', uploadedImages.length)
+            return uploadedImages.length > 0
         }
 
         if (stepId === 'kalkulation') {
-            return !!savedAkteId
+            return kalkulationCompleted
         }
 
         if (stepId === 'dokumentation') {
-            return !!savedAkteId // Dokumentation ist verfügbar wenn Akte gespeichert ist
-        }
+            // Hier könnte man prüfen ob tatsächlich Dokumentation ausgefüllt wurde
+            return false // Nie grün werden lassen bis echte Validierung implementiert ist
+        }   
 
         // Für andere Steps (dokumentation etc.)
         const stepData = formData[stepId as keyof FormData]
@@ -384,20 +388,23 @@ export default function AkteForm() {
 
             setIsAbtretungSigned(akteData.abtretung_data?.isSignatureApplied || false)
             setIsAkteCompleted(akteData.status === 'Abgeschlossen')
+            setKalkulationCompleted(!!akteData.az)
 
             // Bilder laden (falls API verfügbar)
             try {
                 const bilderData = await extendedAktenApi.getBilder(savedAkteId)
-                setBilder(bilderData || [])
+                console.log('Geladene Bilder:', bilderData)
+                setUploadedImages(bilderData.bilder || [])
+                console.log('uploadedImages State gesetzt auf:', bilderData.bilder?.length || 0)
             } catch (error) {
                 console.warn('Bilder konnten nicht geladen werden:', error)
-                setBilder([])
+                setUploadedImages([])
             }
 
             // Kalkulationen laden (falls API verfügbar)
             try {
                 const kalkulationenData = await extendedAktenApi.getKalkulationen(savedAkteId)
-                setVerfugbareKalkulationen(kalkulationenData || [])
+                setVerfugbareKalkulationen(kalkulationenData?.kalkulationen || [])
             } catch (error) {
                 console.warn('Kalkulationen konnten nicht geladen werden:', error)
                 setVerfugbareKalkulationen([])
@@ -418,14 +425,16 @@ export default function AkteForm() {
         const currentStepId = formSteps[currentStep].id
         
         // Kundendaten automatisch speichern beim ersten Schritt
-        if (currentStepId === 'kundendaten' && isStepValid(currentStepId) && !savedAkteId) {
+        if (currentStepId === 'kundendaten' && isStepValid(currentStepId)) {
             try {
-                const result = await aktenApi.createAkte({
-                    kunde: formData.kundendaten.kunde,
-                    kennzeichen: formData.kundendaten.kennzeichen,
-                    schadenort: formData.kundendaten.schadenort
-                })
-                setSavedAkteId(result.id)
+                if (!savedAkteId) {
+                    // Neue Akte erstellen
+                    const result = await aktenApi.createAkte(formData.kundendaten)
+                    setSavedAkteId(result.id)
+                } else {
+                    // Bestehende Akte aktualisieren
+                    await aktenApi.updateAkte(savedAkteId, formData.kundendaten)
+                }
                 setMessage({ type: 'success', text: 'Kundendaten erfolgreich gespeichert!' })
             } catch (error) {
                 setMessage({ type: 'error', text: 'Fehler beim Speichern: ' + (error as Error).message })
@@ -491,6 +500,7 @@ export default function AkteForm() {
                     <BilderStep
                         akteId={savedAkteId || undefined}
                         isAkteSaved={!!savedAkteId}
+                        onImagesUpdate={setUploadedImages}
                     />
                 )
 
@@ -500,6 +510,10 @@ export default function AkteForm() {
                         kundendaten={formData.kundendaten}
                         isAkteSaved={!!savedAkteId}
                         akteId={savedAkteId || undefined}
+                        onKalkulationComplete={(azNumber) => {
+                            setKalkulationCompleted(true)
+                            setCurrentStep(currentStep + 1)
+                        }}
                     />
                 )
 
@@ -668,38 +682,6 @@ export default function AkteForm() {
                                     </CardContent>
                                 </Card>
                             </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Zusammenfassung */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Übersicht</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid gap-4 md:grid-cols-5">
-                            {formSteps.map((step, index) => (
-                                <div key={step.id} className="text-center">
-                                    <div className={`
-                    w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-2
-                    ${isStepValid(step.id)
-                                            ? 'bg-green-100 text-green-600'
-                                            : 'bg-muted text-muted-foreground'
-                                        }
-                  `}>
-                                        {isStepValid(step.id) ? (
-                                            <Check className="h-6 w-6" />
-                                        ) : (
-                                            React.createElement(step.icon, { className: "h-6 w-6" })
-                                        )}
-                                    </div>
-                                    <h4 className="font-medium text-sm">{step.title}</h4>
-                                    <Badge variant={isStepValid(step.id) ? 'default' : 'secondary'} className="mt-1">
-                                        {isStepValid(step.id) ? 'Abgeschlossen' : 'Ausstehend'}
-                                    </Badge>
-                                </div>
-                            ))}
                         </div>
                     </CardContent>
                 </Card>

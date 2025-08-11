@@ -16,7 +16,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   User,
   Edit,
-  FileText,
   Home
 } from 'lucide-react'
 
@@ -38,13 +37,8 @@ const getMenuItems = (isAdmin: boolean) => [
     icon: Edit,
     href: '/edit-profile',
     description: 'Profildaten bearbeiten'
-  },
-  {
-    title: 'Akten',
-    icon: FileText,
-    href: '/akten',
-    description: 'Dateien und Dokumente verwalten'
   }
+  // "Akten" Menüpunkt entfernt - ist jetzt im Dashboard integriert
 ]
 
 interface DashboardLayoutProps {

@@ -1,0 +1,9 @@
+node_modules/
+.env
+*.log
+dist/
+build/
+public/akte_bilder/
+../api-server/node_modules/
+../api-server/.env
+../api-server/bun.lock
