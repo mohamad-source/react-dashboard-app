@@ -50,6 +50,66 @@ export default function BilderStep({ isAkteSaved, akteId, onImagesUpdate }: Bild
         }
     }, [akteId, isAkteSaved])
 
+    const uploadFiles = async (files: File[]) => {
+        if (!akteId) {
+            alert('Keine Akte-ID vorhanden. Bitte speichern Sie zuerst die Kundendaten.')
+            return
+        }
+
+    // SOFORT selectedFiles leeren
+    setSelectedFiles([])
+    if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+    }
+
+    setIsUploading(true)
+    setUploadProgress(0)
+    setUploadStatus('Upload wird vorbereitet...')
+
+    try {
+        const formData = new FormData()
+        formData.append('akte_id', akteId.toString())
+        
+        files.forEach(file => {
+            formData.append('images[]', file)
+        })
+
+        const response = await fetch(`${API_BASE}/api/akten/${akteId}/bilder`, {
+            method: 'POST',
+            body: formData
+        })
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+
+        const data = await response.json()
+
+        if (data.success) {
+            setUploadProgress(100)
+            setUploadStatus(`Upload erfolgreich! ${data.uploaded_count || 0} Datei(en) hochgeladen.`)
+            
+            // Bilder neu laden
+            await loadImages()
+
+            // Progress nach 3 Sekunden ausblenden
+            setTimeout(() => {
+                setIsUploading(false)
+                setUploadProgress(0)
+                setUploadStatus('')
+            }, 3000)
+        } else {
+            throw new Error(data.message || 'Unbekannter Fehler')
+        }
+    } catch (error) {
+        console.error('Upload-Fehler:', error)
+        alert('Upload-Fehler: ' + (error as Error).message)
+        setIsUploading(false)
+        setUploadProgress(0)
+        setUploadStatus('')
+    }
+}
+
     const loadImages = async () => {
         if (!akteId) return
 
@@ -89,30 +149,28 @@ export default function BilderStep({ isAkteSaved, akteId, onImagesUpdate }: Bild
     }
 
     const processFiles = (files: File[]) => {
-        // Filter nur Bilder
-        const imageFiles = files.filter(file => file.type.startsWith('image/'))
+    console.log('processFiles called with files:', files.length)
+    console.log('akteId:', akteId)
+    
+    // Filter nur Bilder
+    const imageFiles = files.filter(file => file.type.startsWith('image/'))
+    console.log('imageFiles:', imageFiles.length)
 
-        if (imageFiles.length === 0) {
-            alert('Bitte wählen Sie nur Bilddateien aus (JPG, PNG).')
-            return
-        }
-
-        // Validierung: Max 5MB pro Datei
-        const oversizedFiles = imageFiles.filter(file => file.size > 5 * 1024 * 1024)
-        if (oversizedFiles.length > 0) {
-            alert(`Die folgenden Dateien sind zu groß (max. 5MB): ${oversizedFiles.map(f => f.name).join(', ')}`)
-            return
-        }
-
-        // Validierung: Max 10 Bilder total
-        const currentCount = uploadedImages.length
-        if (currentCount + imageFiles.length > 10) {
-            alert(`Maximal 10 Bilder erlaubt. Aktuell: ${currentCount}, Versucht: ${imageFiles.length}`)
-            return
-        }
-
-        setSelectedFiles(imageFiles)
+    if (imageFiles.length === 0) {
+        alert('Bitte wählen Sie nur Bilddateien aus (JPG, PNG).')
+        return
     }
+
+    // ... validierungen ...
+
+    // Direkt hochladen wenn akteId vorhanden
+    if (imageFiles.length > 0) {
+        console.log('Starting upload...')
+        uploadFiles(imageFiles)
+    } else {
+        console.log('No upload - imageFiles.length:', imageFiles.length)
+    }
+}
 
     const removeFile = (index: number) => {
         const newFiles = selectedFiles.filter((_, i) => i !== index)
@@ -123,72 +181,6 @@ export default function BilderStep({ isAkteSaved, akteId, onImagesUpdate }: Bild
             const dt = new DataTransfer()
             newFiles.forEach(file => dt.items.add(file))
             fileInputRef.current.files = dt.files
-        }
-    }
-
-    const handleImageUpload = async () => {
-        if (!selectedFiles.length) {
-            alert('Bitte wählen Sie mindestens eine Datei aus.')
-            return
-        }
-
-        if (!akteId) {
-            alert('Fehler: Keine Akte-ID gefunden.')
-            return
-        }
-
-        setIsUploading(true)
-        setUploadProgress(0)
-        setUploadStatus('Upload wird vorbereitet...')
-
-        try {
-            const formData = new FormData()
-            formData.append('akte_id', akteId.toString())
-            
-            selectedFiles.forEach(file => {
-                formData.append('images[]', file)
-            })
-
-            const response = await fetch(`${API_BASE}/api/akten/${akteId}/bilder`, {
-                method: 'POST',
-                body: formData
-            })
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-            }
-
-            const data = await response.json()
-
-            if (data.success) {
-                setUploadProgress(100)
-                setUploadStatus(`Upload erfolgreich! ${data.uploaded_count || 0} Datei(en) hochgeladen.`)
-                alert('Bilder erfolgreich hochgeladen!')
-
-                // Reset
-                setSelectedFiles([])
-                if (fileInputRef.current) {
-                    fileInputRef.current.value = ''
-                }
-
-                // Bilder neu laden
-                await loadImages()
-
-                // Progress nach 3 Sekunden ausblenden
-                setTimeout(() => {
-                    setIsUploading(false)
-                    setUploadProgress(0)
-                    setUploadStatus('')
-                }, 3000)
-            } else {
-                throw new Error(data.message || 'Unbekannter Fehler')
-            }
-        } catch (error) {
-            console.error('Upload-Fehler:', error)
-            alert('Upload-Fehler: ' + (error as Error).message)
-            setIsUploading(false)
-            setUploadProgress(0)
-            setUploadStatus('')
         }
     }
 
@@ -222,17 +214,6 @@ export default function BilderStep({ isAkteSaved, akteId, onImagesUpdate }: Bild
         const sizes = ['Bytes', 'KB', 'MB', 'GB']
         const i = Math.floor(Math.log(bytes) / Math.log(k))
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-    }
-
-    if (!isAkteSaved) {
-        return (
-            <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                    Bitte speichern Sie zuerst die Kundendaten, bevor Sie Bilder hochladen können.
-                </AlertDescription>
-            </Alert>
-        )
     }
 
     return (
@@ -318,25 +299,6 @@ export default function BilderStep({ isAkteSaved, akteId, onImagesUpdate }: Bild
                             <p className="text-sm text-center text-gray-600">{uploadStatus}</p>
                         </div>
                     )}
-
-                    {/* Upload Button */}
-                    <Button
-                        onClick={handleImageUpload}
-                        disabled={selectedFiles.length === 0 || isUploading}
-                        className="w-full mt-4"
-                    >
-                        {isUploading ? (
-                            <>
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                Wird hochgeladen...
-                            </>
-                        ) : (
-                            <>
-                                <Upload className="h-4 w-4 mr-2" />
-                                {selectedFiles.length} Datei(en) hochladen
-                            </>
-                        )}
-                    </Button>
                 </CardContent>
             </Card>
 

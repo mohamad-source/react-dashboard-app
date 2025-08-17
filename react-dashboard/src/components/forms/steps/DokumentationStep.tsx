@@ -209,30 +209,6 @@ export default function DokumentationStep({
         }
     }
 
-    if (!isAkteSaved) {
-        return (
-            <div className="space-y-6">
-                <Alert>
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertDescription>
-                        <strong>Hinweis:</strong> Bitte speichern Sie zuerst die Kundendaten, bevor Sie eine Dokumentation erstellen können.
-                    </AlertDescription>
-                </Alert>
-
-                <div className="flex justify-between">
-                    <Button variant="outline">
-                        <ArrowLeft className="mr-2 h-4 w-4" />
-                        Zurück
-                    </Button>
-                    <Button variant="outline">
-                        <User className="mr-2 h-4 w-4" />
-                        Zu Kundendaten
-                    </Button>
-                </div>
-            </div>
-        )
-    }
-
     return (
         <div className="space-y-6">
             {/* PDF Dokumentation */}

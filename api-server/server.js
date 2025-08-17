@@ -1144,89 +1144,86 @@ app.post('/api/akten/:id/dokumentation', upload.none(), async (req, res) => {
     }
     
     // ========== DAT-KALKULATION ANHÄNGEN ==========
-    // DEBUGGING VERSION - Füge diese Logs hinzu um zu sehen was passiert
-
-// ========== DAT-KALKULATION ANHÄNGEN ==========
-if (pdf_sections.includes('kalkulation') && selected_kalkulation_id) {
-  console.log('Füge DAT-Kalkulation hinzu...')
-  
-  const [kalkRows] = await db.execute('SELECT * FROM dat_kalkulationen WHERE id = ? AND akte_id = ?', [selected_kalkulation_id, akteId])
-  
-  console.log('Kalkulation gefunden:', kalkRows.length > 0)
-  if (kalkRows.length > 0) {
-    console.log('Kalkulation Daten:', {
-      id: kalkRows[0].id,
-      filename: kalkRows[0].filename,
-      brutto: kalkRows[0].brutto,
-      netto: kalkRows[0].netto,
-      has_pdf_blob: !!kalkRows[0].pdf_blob,
-      pdf_blob_size: kalkRows[0].pdf_blob ? kalkRows[0].pdf_blob.length : 0
-    })
-  }
-  
-  if (kalkRows.length > 0 && kalkRows[0].pdf_blob) {
-    try {
-      console.log('Versuche PDFs zusammenzufügen...')
+    if (pdf_sections.includes('kalkulation') && selected_kalkulation_id) {
+      console.log('Füge DAT-Kalkulation hinzu...')
       
-      // PDFLib für das Zusammenfügen verwenden
-      const PDFDocument = require('pdf-lib').PDFDocument
+      const [kalkRows] = await db.execute('SELECT * FROM dat_kalkulationen WHERE id = ? AND akte_id = ?', [selected_kalkulation_id, akteId])
       
-      // Haupt-PDF laden
-      console.log('Lade Haupt-PDF...')
-      const mainPdf = await PDFDocument.load(finalPdfBytes)
-      console.log('Haupt-PDF Seiten:', mainPdf.getPageCount())
+      console.log('Kalkulation gefunden:', kalkRows.length > 0)
+      if (kalkRows.length > 0) {
+        console.log('Kalkulation Daten:', {
+          id: kalkRows[0].id,
+          filename: kalkRows[0].filename,
+          brutto: kalkRows[0].brutto,
+          netto: kalkRows[0].netto,
+          has_pdf_blob: !!kalkRows[0].pdf_blob,
+          pdf_blob_size: kalkRows[0].pdf_blob ? kalkRows[0].pdf_blob.length : 0
+        })
+      }
       
-      // DAT-Kalkulations-PDF laden
-      console.log('Lade DAT-PDF...')
-      const kalkulationsPdf = await PDFDocument.load(kalkRows[0].pdf_blob)
-      console.log('DAT-PDF Seiten:', kalkulationsPdf.getPageCount())
-      
-      // Seiten aus Kalkulationss-PDF kopieren
-      console.log('Kopiere DAT-PDF Seiten...')
-      const kalkulationsPages = await mainPdf.copyPages(kalkulationsPdf, kalkulationsPdf.getPageIndices())
-      console.log('Seiten kopiert:', kalkulationsPages.length)
-      
-      // Seiten zum Haupt-PDF hinzufügen
-      console.log('Füge Seiten hinzu...')
-      kalkulationsPages.forEach((page, index) => {
-        console.log(`Füge Seite ${index + 1} hinzu...`)
-        mainPdf.addPage(page)
-      })
-      
-      console.log('Finales PDF Seiten:', mainPdf.getPageCount())
-      
-      // Aktualisiertes PDF speichern
-      console.log('Speichere finales PDF...')
-      finalPdfBytes = await mainPdf.save()
-      console.log('Final PDF Größe:', finalPdfBytes.length)
-      
-    } catch (kalkError) {
-      console.error('Fehler beim Anhängen der DAT-Kalkulation:', kalkError)
-      console.error('Error Stack:', kalkError.stack)
-      
-      // Fallback: Neue Seite mit Kalkulations-Daten
-      console.log('Verwende Fallback für DAT-Kalkulation...')
-      doc.addPage()
-      doc.setFontSize(18)
-      doc.setTextColor(0, 102, 204)
-      doc.text('DAT-Kalkulation', 20, 20)
-      doc.setFontSize(12)
-      doc.setTextColor(0, 0, 0)
-      doc.text(`Dateiname: ${kalkRows[0].filename}`, 20, 40)
-      doc.text(`Brutto: ${kalkRows[0].brutto ? parseFloat(kalkRows[0].brutto).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }) : ''}`, 20, 55)
-      doc.text(`Netto: ${kalkRows[0].netto ? parseFloat(kalkRows[0].netto).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }) : ''}`, 20, 70)
-      doc.text(`Erstellt: ${kalkRows[0].erstellt_am ? new Date(kalkRows[0].erstellt_am).toLocaleString('de-DE') : ''}`, 20, 85)
-      doc.setFontSize(10)
-      doc.setTextColor(255, 0, 0)
-      doc.text('Original DAT-PDF konnte nicht angehängt werden.', 20, 100)
-      doc.text(`Fehler: ${kalkError.message}`, 20, 115)
-      
-      finalPdfBytes = new Uint8Array(doc.output('arraybuffer'))
+      if (kalkRows.length > 0 && kalkRows[0].pdf_blob) {
+        try {
+          console.log('Versuche PDFs zusammenzufügen...')
+          
+          // PDFLib für das Zusammenfügen verwenden
+          const PDFDocument = require('pdf-lib').PDFDocument
+          
+          // Haupt-PDF laden
+          console.log('Lade Haupt-PDF...')
+          const mainPdf = await PDFDocument.load(finalPdfBytes)
+          console.log('Haupt-PDF Seiten:', mainPdf.getPageCount())
+          
+          // DAT-Kalkulations-PDF laden
+          console.log('Lade DAT-PDF...')
+          const kalkulationsPdf = await PDFDocument.load(kalkRows[0].pdf_blob)
+          console.log('DAT-PDF Seiten:', kalkulationsPdf.getPageCount())
+          
+          // Seiten aus Kalkulationss-PDF kopieren
+          console.log('Kopiere DAT-PDF Seiten...')
+          const kalkulationsPages = await mainPdf.copyPages(kalkulationsPdf, kalkulationsPdf.getPageIndices())
+          console.log('Seiten kopiert:', kalkulationsPages.length)
+          
+          // Seiten zum Haupt-PDF hinzufügen
+          console.log('Füge Seiten hinzu...')
+          kalkulationsPages.forEach((page, index) => {
+            console.log(`Füge Seite ${index + 1} hinzu...`)
+            mainPdf.addPage(page)
+          })
+          
+          console.log('Finales PDF Seiten:', mainPdf.getPageCount())
+          
+          // Aktualisiertes PDF speichern
+          console.log('Speichere finales PDF...')
+          finalPdfBytes = await mainPdf.save()
+          console.log('Final PDF Größe:', finalPdfBytes.length)
+          
+        } catch (kalkError) {
+          console.error('Fehler beim Anhängen der DAT-Kalkulation:', kalkError)
+          console.error('Error Stack:', kalkError.stack)
+          
+          // Fallback: Neue Seite mit Kalkulations-Daten
+          console.log('Verwende Fallback für DAT-Kalkulation...')
+          doc.addPage()
+          doc.setFontSize(18)
+          doc.setTextColor(0, 102, 204)
+          doc.text('DAT-Kalkulation', 20, 20)
+          doc.setFontSize(12)
+          doc.setTextColor(0, 0, 0)
+          doc.text(`Dateiname: ${kalkRows[0].filename}`, 20, 40)
+          doc.text(`Brutto: ${kalkRows[0].brutto ? parseFloat(kalkRows[0].brutto).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }) : ''}`, 20, 55)
+          doc.text(`Netto: ${kalkRows[0].netto ? parseFloat(kalkRows[0].netto).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }) : ''}`, 20, 70)
+          doc.text(`Erstellt: ${kalkRows[0].erstellt_am ? new Date(kalkRows[0].erstellt_am).toLocaleString('de-DE') : ''}`, 20, 85)
+          doc.setFontSize(10)
+          doc.setTextColor(255, 0, 0)
+          doc.text('Original DAT-PDF konnte nicht angehängt werden.', 20, 100)
+          doc.text(`Fehler: ${kalkError.message}`, 20, 115)
+          
+          finalPdfBytes = new Uint8Array(doc.output('arraybuffer'))
+        }
+      } else {
+        console.log('Keine DAT-Kalkulation gefunden oder kein PDF-Blob vorhanden')
+      }
     }
-  } else {
-    console.log('Keine DAT-Kalkulation gefunden oder kein PDF-Blob vorhanden')
-  }
-}
     
     // Final PDF senden
     res.setHeader('Content-Type', 'application/pdf')

@@ -22,12 +22,16 @@ import {
 interface KundendatenData {
   kunde: string
   kennzeichen: string
+  fahrzeugtyp: string
+  vin: string
+  adresse1: string
+  adresse2: string
   versicherungsnummer: string
+  schadennummer: string
   selbstbeteiligung: string
-  vorsteuer_berechtigt: string
   schadentag: string
   schadenort: string
-  schadennummer: string
+  vorsteuer_berechtigt: string
 }
 
 interface AbtretungData {
@@ -128,6 +132,11 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
       }
       if (kundendaten.vorsteuer_berechtigt && !data.vorsteuer) {
         onUpdate('vorsteuer', kundendaten.vorsteuer_berechtigt.toLowerCase())
+      }
+      // NEUE ZEILE: Adresse übernehmen
+      if (kundendaten.adresse1 && kundendaten.adresse2 && !data.adresse) {
+        const vollAdresse = `${kundendaten.adresse1}, ${kundendaten.adresse2}`
+        onUpdate('adresse', vollAdresse)
       }
     }
   }, [kundendaten, data, onUpdate, isAbtretungSigned])
@@ -540,50 +549,43 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
               <Car className="h-5 w-5 text-orange-600" />
               <h3 className="text-lg font-semibold">3. Fahrzeug/Schadenbereich</h3>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="marke">Marke:</Label>
-                  <Input
-                    id="marke"
-                    value={data.marke}
-                    onChange={(e) => onUpdate('marke', e.target.value)}
-                    placeholder="Fahrzeugmarke"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="modell">Modell:</Label>
-                  <Input
-                    id="modell"
-                    value={data.modell}
-                    onChange={(e) => onUpdate('modell', e.target.value)}
-                    placeholder="Fahrzeugmodell"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="kennzeichen_fahrzeug">Kennzeichen:</Label>
-                  <Input
-                    id="kennzeichen_fahrzeug"
-                    value={data.kennzeichen}
-                    onChange={(e) => onUpdate('kennzeichen', e.target.value)}
-                    readOnly
-                    className="bg-gray-50"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="schadenzeitpunkt">Schadenzeitpunkt:</Label>
-                  <Input
-                    id="schadenzeitpunkt"
-                    type="date"
-                    value={data.schadenzeitpunkt}
-                    onChange={(e) => onUpdate('schadenzeitpunkt', e.target.value)}
-                  />
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <Label htmlFor="marke">Marke:</Label>
+                <Input
+                  id="marke"
+                  value={data.marke}
+                  onChange={(e) => onUpdate('marke', e.target.value)}
+                  placeholder="Fahrzeugmarke"
+                />
               </div>
-              <div className="flex items-center justify-center">
-                <div className="w-full h-48 bg-gray-100 rounded-lg flex items-center justify-center">
-                  <Car className="h-24 w-24 text-gray-400" />
-                </div>
+              <div>
+                <Label htmlFor="modell">Modell:</Label>
+                <Input
+                  id="modell"
+                  value={data.modell}
+                  onChange={(e) => onUpdate('modell', e.target.value)}
+                  placeholder="Fahrzeugmodell"
+                />
+              </div>
+              <div>
+                <Label htmlFor="kennzeichen_fahrzeug">Kennzeichen:</Label>
+                <Input
+                  id="kennzeichen_fahrzeug"
+                  value={data.kennzeichen}
+                  onChange={(e) => onUpdate('kennzeichen', e.target.value)}
+                  readOnly
+                  className="bg-gray-50"
+                />
+              </div>
+              <div>
+                <Label htmlFor="schadenzeitpunkt">Schadenzeitpunkt:</Label>
+                <Input
+                  id="schadenzeitpunkt"
+                  type="date"
+                  value={data.schadenzeitpunkt}
+                  onChange={(e) => onUpdate('schadenzeitpunkt', e.target.value)}
+                />
               </div>
             </div>
             <div className="mt-4">

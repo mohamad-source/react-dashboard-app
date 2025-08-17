@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { useParams } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import DashboardLayout from '../DashboardLayout'
+import { Check, Copy, CheckCircle as StepCheck } from 'lucide-react'
 import KundendatenStep from './steps/KundendatenStep'
 import AbtretungStep from './steps/AbtretungStep'
 import BilderStep from './steps/BilderStep'
@@ -21,7 +22,6 @@ import {
     Camera,
     Calculator,
     FolderOpen,
-    Check,
     ChevronRight,
     AlertCircle,
     CheckCircle
@@ -184,6 +184,8 @@ export default function AkteForm() {
     const [savedAkteId, setSavedAkteId] = useState<number | null>(
         id ? parseInt(id) : null 
     )
+    const [currentVIN, setCurrentVIN] = useState<string>('')
+    const [vinCopied, setVinCopied] = useState(false)
     
     // Neue State-Variablen für Dokumentation
     const [bilder, setBilder] = useState<any[]>([])
@@ -254,6 +256,31 @@ export default function AkteForm() {
         }
     }, [id, savedAkteId])
     
+    useEffect(() => {
+        setCurrentVIN(formData.kundendaten.vin)
+    }, [formData.kundendaten.vin])
+
+    const saveCurrentStep = async () => {
+        const currentStepId = formSteps[currentStep].id
+        
+        if (currentStepId === 'kundendaten') {
+            try {
+            if (!savedAkteId) {
+                // NEUE AKTE ERSTELLEN beim ersten Tab-Wechsel
+                console.log('Erstelle neue Akte beim Tab-Wechsel')
+                const result = await aktenApi.createAkte(formData.kundendaten)
+                setSavedAkteId(result.id)
+                console.log('Neue Akte erstellt mit ID:', result.id)
+            } else {
+                // BESTEHENDE AKTE AKTUALISIEREN
+                await aktenApi.updateAkte(savedAkteId, formData.kundendaten)
+                console.log('Kundendaten automatisch gespeichert beim Tab-Wechsel')
+            }
+            } catch (error) {
+            console.error('Fehler beim automatischen Speichern:', error)
+            }
+        }
+        }
 
     // Prüfen ob alle Pflichtfelder eines Schritts ausgefüllt sind
     const isStepValid = (stepId: string): boolean => {
@@ -573,19 +600,20 @@ export default function AkteForm() {
                                         return (
                                             <button
                                                 key={step.id}
-                                                onClick={() => isAccessible && setCurrentStep(index)}
-                                                disabled={!isAccessible}
+                                                onClick={async () => {
+                                                    await saveCurrentStep()
+                                                    setCurrentStep(index)
+                                                }}
+                                                disabled={false}
                                                 className={`
-                          w-full flex items-center gap-3 p-3 rounded-lg text-left transition-all
-                          ${isCurrent
+                                                    w-full flex items-center gap-3 p-3 rounded-lg text-left transition-all
+                                                    ${isCurrent
                                                         ? 'bg-primary text-primary-foreground shadow-md'
                                                         : isCompleted
-                                                            ? 'bg-green-50 text-green-700 hover:bg-green-100'
-                                                            : isAccessible
-                                                                ? 'bg-muted hover:bg-muted/80'
-                                                                : 'bg-muted/50 text-muted-foreground cursor-not-allowed'
+                                                        ? 'bg-green-50 text-green-700 hover:bg-green-100'
+                                                        : 'bg-muted hover:bg-muted/80'
                                                     }
-                        `}
+                                                    `}
                                             >
                                                 <div className={`
                           flex items-center justify-center w-8 h-8 rounded-full border-2
@@ -599,7 +627,7 @@ export default function AkteForm() {
                                                     }
                         `}>
                                                     {isCompleted ? (
-                                                        <Check className="h-4 w-4" />
+                                                        <StepCheck className="h-4 w-4" />
                                                     ) : (
                                                         React.createElement(step.icon, { className: "h-4 w-4" })
                                                     )}
@@ -636,7 +664,8 @@ export default function AkteForm() {
                             <div className="lg:col-span-3">
                                 <Card>
                                     <CardHeader>
-                                        <div className="flex items-center gap-3">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
                                             <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-primary-foreground">
                                                 {React.createElement(formSteps[currentStep].icon, { className: "h-5 w-5" })}
                                             </div>
@@ -644,8 +673,32 @@ export default function AkteForm() {
                                                 <CardTitle className="text-xl">{formSteps[currentStep].title}</CardTitle>
                                                 <CardDescription>{formSteps[currentStep].description}</CardDescription>
                                             </div>
+                                            </div>
+                                            
+                                            {/* VIN Widget */}
+                                            {currentVIN && (
+                                            <div className="flex items-center gap-2 bg-muted px-3 py-1 rounded-lg">
+                                                <span className="text-sm font-mono">{currentVIN}</span>
+                                                <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={async () => {
+                                                    await navigator.clipboard.writeText(currentVIN)
+                                                    setVinCopied(true)
+                                                    setTimeout(() => setVinCopied(false), 1500)
+                                                }}
+                                                className="h-6 w-6 p-0"
+                                                >
+                                                {vinCopied ? (
+                                                    <Check className="h-3 w-3 text-green-600" />
+                                                ) : (
+                                                    <Copy className="h-3 w-3" />
+                                                )}
+                                                </Button>
+                                            </div>
+                                            )}
                                         </div>
-                                    </CardHeader>
+                                        </CardHeader>
                                     <CardContent>
                                         {renderStepContent()}
 
@@ -673,7 +726,7 @@ export default function AkteForm() {
                                                         disabled={!formSteps.every(step => isStepValid(step.id))}
                                                         className="bg-green-600 hover:bg-green-700"
                                                     >
-                                                        <Check className="mr-2 h-4 w-4" />
+                                                        <StepCheck className="mr-2 h-4 w-4" />
                                                         Akte erstellen
                                                     </Button>
                                                 )}

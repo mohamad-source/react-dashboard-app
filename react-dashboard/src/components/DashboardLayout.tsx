@@ -1,6 +1,9 @@
 import type { ReactNode } from 'react'
 import { UserButton, useUser } from '@clerk/clerk-react'
+import { useClerk } from '@clerk/clerk-react'
+import { LogOut } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
+import { Button } from '@/components/ui/button'
 import {
   Sidebar,
   SidebarContent,
@@ -38,7 +41,6 @@ const getMenuItems = (isAdmin: boolean) => [
     href: '/edit-profile',
     description: 'Profildaten bearbeiten'
   }
-  // "Akten" Menüpunkt entfernt - ist jetzt im Dashboard integriert
 ]
 
 interface DashboardLayoutProps {
@@ -49,6 +51,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user } = useUser()
   const location = useLocation()
   const currentPath = location.pathname
+  const { signOut } = useClerk()
 
   const isAdmin = user?.publicMetadata?.role === 'admin'
   const menuItems = getMenuItems(isAdmin)
@@ -94,10 +97,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </SidebarContent>
 
           <SidebarFooter className="border-t p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Abmelden</span>
-              <UserButton afterSignOutUrl="/sign-in" />
-            </div>
+            <Button 
+              variant="ghost" 
+              className="w-full justify-start gap-2" 
+              onClick={() => signOut({ redirectUrl: '/sign-in' })}
+            >
+              <LogOut className="h-4 w-4" />
+              Abmelden
+            </Button>
           </SidebarFooter>
         </Sidebar>
 

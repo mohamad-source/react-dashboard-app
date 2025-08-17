@@ -39,47 +39,11 @@ interface KalkulationStepProps {
 
 export default function KalkulationStep({ kundendaten, isAkteSaved, akteId, onKalkulationComplete }: KalkulationStepProps) {
     const [isLoading, setIsLoading] = useState(false)
-    const [isInitialized, setIsInitialized] = useState(false)
     const [error, setError] = useState<string | null>(null)
-    const iframeRef = useRef<HTMLIFrameElement>(null)
     const containerRef = useRef<HTMLDivElement>(null)
-    const initializationRef = useRef<boolean>(false)
-
-    // DAT-System initialisieren
-    const initDATSystem = useCallback(async () => {
-        console.log('initDATSystem called - initializationRef:', initializationRef.current, 'isLoading:', isLoading)
-
-        if (initializationRef.current || isLoading) {
-            console.log('Bereits initialisiert oder lädt - Abbruch')
-            return
-        }
-
-        // Container leeren bevor neue Initialisierung
-        if (containerRef.current) {
-            containerRef.current.innerHTML = ''
-        }
-
-        initializationRef.current = true
-        setIsLoading(true)
-        setError(null)
-
-        try {
-            setIsInitialized(true)
-            await new Promise(resolve => setTimeout(resolve, 100))
-
-            await loadDATScripts()
-            const token = await getDATToken()
-            await initDAT(token)
-
-        } catch (err) {
-            console.error('DAT-Fehler:', err)
-            setError('Fehler beim Laden des DAT-Systems: ' + (err as Error).message)
-            setIsInitialized(false)
-            initializationRef.current = false
-        } finally {
-            setIsLoading(false)
-        }
-    }, [])
+    
+    // EINZIGER State für Initialisierung - verhindert doppeltes Laden
+    const isInitializedRef = useRef<boolean>(false)
 
     // DAT-Skripte dynamisch laden
     const loadDATScripts = (): Promise<void> => {
@@ -195,6 +159,36 @@ export default function KalkulationStep({ kundendaten, isAkteSaved, akteId, onKa
         })
     }
 
+    // HAUPT-Initialisierungsfunktion - OHNE useCallback Dependencies
+    const initDATSystem = async () => {
+        console.log('initDATSystem called - isInitialized:', isInitializedRef.current)
+
+        // Verhindere doppelte Initialisierung
+        if (isInitializedRef.current || isLoading) {
+            console.log('Bereits initialisiert oder lädt - Abbruch')
+            return
+        }
+
+        // SOFORT markieren als initialisiert
+        isInitializedRef.current = true
+        setIsLoading(true)
+        setError(null)
+
+        try {
+            await loadDATScripts()
+            const token = await getDATToken()
+            await initDAT(token)
+            console.log('DAT-System erfolgreich initialisiert')
+
+        } catch (err) {
+            console.error('DAT-Fehler:', err)
+            setError('Fehler beim Laden des DAT-Systems: ' + (err as Error).message)
+            isInitializedRef.current = false // Bei Fehler zurücksetzen
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
     // Callback für DAT-System
     const handleDATCallback = useCallback(async (azNumber: string) => {
         console.log('=== handleDATCallback DEBUG ===')
@@ -209,25 +203,13 @@ export default function KalkulationStep({ kundendaten, isAkteSaved, akteId, onKa
             formData.append('az', azNumber)
             formData.append('akte_id', akteId.toString())
 
-            console.log('Sende Request an:', `/api/akten/${akteId}/kalkulation`)
-            console.log('FormData Inhalt:')
-            for (let pair of formData.entries()) {
-                console.log(pair[0] + ': ' + pair[1])
-            }
-
             const response = await fetch(`${import.meta.env.VITE_API_URL}/akten/${akteId}/kalkulation`, {
                 method: 'POST',
                 body: formData
             })
 
-            console.log('Response Status:', response.status)
-            console.log('Response OK:', response.ok)
-            
             const responseText = await response.text()
-            console.log('Response Text (raw):', responseText)
-
             const data = JSON.parse(responseText)
-            console.log('Parsed Data:', data)
 
             if (data.success) {
                 alert('Kalkulation wurde erfolgreich erstellt!')
@@ -249,7 +231,7 @@ export default function KalkulationStep({ kundendaten, isAkteSaved, akteId, onKa
         }
     }, [akteId, onKalkulationComplete])
 
-    // Globalen Callback setzen
+    // Globalen Callback setzen - NUR EINMAL
     useEffect(() => {
         window.callbackFromSphinx = (object: any, xml: any) => {
             let azNumber = null
@@ -284,34 +266,25 @@ export default function KalkulationStep({ kundendaten, isAkteSaved, akteId, onKa
         // Cleanup
         return () => {
             window.callbackFromSphinx = undefined
-            initializationRef.current = false
         }
     }, [handleDATCallback])
 
+    // EINMALIGER useEffect für Initialisierung - KEINE Dependencies!
     useEffect(() => {
-        if (isAkteSaved && akteId && !initializationRef.current && !isLoading) {
+        console.log('useEffect triggered - isAkteSaved:', isAkteSaved, 'akteId:', akteId, 'isInitialized:', isInitializedRef.current)
+        
+        if (isAkteSaved && akteId && !isInitializedRef.current) {
             console.log('Initialisiere DAT System - useEffect')
             initDATSystem()
         }
-    }, [isAkteSaved, akteId, isLoading, initDATSystem])
+    }, [isAkteSaved, akteId]) // NUR diese beiden Dependencies!
 
+    // Reload-Funktion
     const reloadDAT = () => {
-        setIsInitialized(false)
+        console.log('Reload DAT triggered')
         setError(null)
-        initializationRef.current = false
+        isInitializedRef.current = false
         setTimeout(() => initDATSystem(), 100)
-    }
-    if (!isAkteSaved) {
-        return (
-            <div className="space-y-6">
-                <Alert>
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                        <strong>Hinweis:</strong> Bitte speichern Sie zuerst die Kundendaten, bevor Sie eine Kalkulation erstellen können.
-                    </AlertDescription>
-                </Alert>
-            </div>
-        )
     }
 
     return (
@@ -357,7 +330,7 @@ export default function KalkulationStep({ kundendaten, isAkteSaved, akteId, onKa
                         )}
 
                         {/* DAT Container */}
-                        {isInitialized && !error && (
+                        {isInitializedRef.current && !error && (
                             <div
                                 ref={containerRef}
                                 id="datContainer"
@@ -367,7 +340,7 @@ export default function KalkulationStep({ kundendaten, isAkteSaved, akteId, onKa
                         )}
 
                         {/* Reload Button */}
-                        {(isInitialized || error) && (
+                        {(isInitializedRef.current || error) && (
                             <div className="absolute top-4 right-4">
                                 <Button
                                     onClick={reloadDAT}

@@ -158,46 +158,6 @@ export default function Dashboard() {
           </Alert>
         )}
 
-        {/* Statistics */}
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardContent className="flex items-center p-6">
-              <FileText className="h-8 w-8 text-blue-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Gesamt</p>
-                <p className="text-2xl font-bold">{akten.length}</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center p-6">
-              <Clock className="h-8 w-8 text-yellow-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">In Bearbeitung</p>
-                <p className="text-2xl font-bold">{akten.filter(a => a.status === 'In Bearbeitung').length}</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center p-6">
-              <CheckCircle className="h-8 w-8 text-green-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Abgeschlossen</p>
-                <p className="text-2xl font-bold">{akten.filter(a => a.status === 'Abgeschlossen').length}</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center p-6">
-              <AlertCircle className="h-8 w-8 text-orange-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Entwürfe</p>
-                <p className="text-2xl font-bold">{akten.filter(a => a.status === 'Entwurf').length}</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
         {/* Filters & Search */}
         <Card>
           <CardHeader>
