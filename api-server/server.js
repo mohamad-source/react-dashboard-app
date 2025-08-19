@@ -1241,6 +1241,33 @@ app.post('/api/akten/:id/dokumentation', upload.none(), async (req, res) => {
   }
 })
 
+app.patch('/api/akten/:id/status', async (req, res) => {
+  try {
+    const akteId = req.params.id
+    const { status } = req.body
+    
+    console.log('Status-Update für Akte:', akteId, 'Neuer Status:', status)
+    
+    const [result] = await db.execute(
+      'UPDATE akte SET status = ?, bearbeitet_am = NOW() WHERE id = ?',
+      [status, akteId]
+    )
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Akte nicht gefunden' })
+    }
+    
+    res.json({ 
+      success: true, 
+      message: `Status erfolgreich auf "${status}" geändert` 
+    })
+    
+  } catch (error) {
+    console.error('Status-Update Fehler:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
 
 app.listen(3001, () => {
   console.log('API Server running on http://localhost:3001');

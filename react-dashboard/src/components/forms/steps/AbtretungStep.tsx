@@ -16,7 +16,8 @@ import {
   User,
   Car,
   Shield,
-  CheckCircle
+  CheckCircle,
+  AlertCircle
 } from 'lucide-react'
 
 interface KundendatenData {
@@ -32,6 +33,8 @@ interface KundendatenData {
   schadentag: string
   schadenort: string
   vorsteuer_berechtigt: string
+  marke: string
+  model: string
 }
 
 interface AbtretungData {
@@ -80,6 +83,12 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
   const [showSignatureModal, setShowSignatureModal] = useState(false)
   const [isAbtretungSigned, setIsAbtretungSigned] = useState(false)
   const [signedDate, setSignedDate] = useState<string>('')
+  const [showModal, setShowModal] = useState<{
+    type: 'error' | 'success' | 'info',
+    title: string,
+    message: string,
+    onConfirm?: () => void
+  } | null>(null)
 
   // API URL from environment
   const API_BASE = import.meta.env.VITE_API_URL.replace('/api', '')
@@ -133,7 +142,12 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
       if (kundendaten.vorsteuer_berechtigt && !data.vorsteuer) {
         onUpdate('vorsteuer', kundendaten.vorsteuer_berechtigt.toLowerCase())
       }
-      // NEUE ZEILE: Adresse übernehmen
+      if (kundendaten.marke && !data.marke) {
+        onUpdate('marke', kundendaten.marke)
+      }
+      if (kundendaten.model && !data.modell) {
+        onUpdate('modell', kundendaten.model)
+      }
       if (kundendaten.adresse1 && kundendaten.adresse2 && !data.adresse) {
         const vollAdresse = `${kundendaten.adresse1}, ${kundendaten.adresse2}`
         onUpdate('adresse', vollAdresse)
@@ -226,7 +240,11 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
 
   const saveAbtretung = async () => {
     if (!data.isSignatureApplied || !data.signatureData) {
-      alert('Bitte unterschreiben Sie zuerst.')
+      setShowModal({
+        type: 'error',
+        title: 'Unterschrift fehlt',
+        message: 'Bitte unterschreiben Sie zuerst.'
+      })
       return
     }
 
@@ -265,143 +283,73 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
       const result = await response.json()
 
       if (result.success) {
-        alert('Abtretung erfolgreich gespeichert!')
+        setShowModal({
+          type: 'success',
+          title: 'Erfolgreich gespeichert',
+          message: 'Abtretung erfolgreich gespeichert!',
+          onConfirm: () => {
+            // Status aktualisieren
+            setIsAbtretungSigned(true)
+            setSignedDate(new Date().toLocaleDateString('de-DE') + ' ' + 
+                         new Date().toLocaleTimeString('de-DE'))
+          }
+        })
         console.log('Abtretung gespeichert:', result)
-        
-        // Status aktualisieren
-        setIsAbtretungSigned(true)
-        setSignedDate(new Date().toLocaleDateString('de-DE') + ' ' + 
-                     new Date().toLocaleTimeString('de-DE'))
       } else {
         throw new Error(result.error || 'Speichern fehlgeschlagen')
       }
 
     } catch (error) {
       console.error('Speicher-Fehler:', error)
-      alert('Fehler beim Speichern: ' + (error as Error).message)
+      setShowModal({
+        type: 'error',
+        title: 'Speicherfehler',
+        message: 'Fehler beim Speichern: ' + (error as Error).message
+      })
     }
   }
 
   // Wenn Abtretung bereits vorhanden ist - PDF-Ansicht anzeigen
   if (isAbtretungSigned) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         {/* Success Alert */}
-        <Alert className="border-green-200 bg-gradient-to-r from-green-50 to-emerald-50">
+        <Alert className="border-green-200 bg-green-50">
           <CheckCircle className="h-5 w-5 text-green-600" />
           <AlertDescription>
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="font-bold text-green-800 text-lg flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Abtretung bereits erstellt
-                </h4>
-                <p className="text-green-700 mt-1">
-                  Erfolgreich unterschrieben am: <strong>{signedDate}</strong>
-                </p>
-              </div>
-              <div className="bg-green-100 p-3 rounded-full">
-                <CheckCircle className="h-8 w-8 text-green-600" />
-              </div>
+            <div>
+              <h4 className="font-semibold text-green-800">Abtretung bereits erstellt</h4>
+              <p className="text-green-700 text-sm mt-1">
+                Unterschrieben am: {signedDate}
+              </p>
             </div>
           </AlertDescription>
         </Alert>
 
-        {/* Main PDF Card */}
-        <Card className="border-2 border-blue-200 shadow-lg">
-          <CardContent className="p-8">
-            <div className="space-y-6">
+        {/* Main Card */}
+        <Card>
+          <CardContent className="p-6">
+            <div className="space-y-4">
               {/* Customer Info */}
-              <div className="bg-gray-50 p-6 rounded-xl border-l-4 border-blue-500">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <h5 className="font-bold text-gray-800 text-lg flex items-center gap-2">
-                      <User className="h-5 w-5 text-blue-600" />
-                      {kundendaten.kunde}
-                    </h5>
-                    <p className="text-gray-600 mt-1">Versicherungsnehmer</p>
-                  </div>
-                  <div className="text-right">
-                    <div className="inline-flex items-center gap-2 bg-blue-100 px-4 py-2 rounded-full">
-                      <Car className="h-4 w-4 text-blue-600" />
-                      <span className="font-mono font-bold text-blue-800">
-                        {kundendaten.kennzeichen}
-                      </span>
-                    </div>
-                  </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h5 className="font-semibold text-lg">{kundendaten.kunde}</h5>
+                  <p className="text-gray-600 text-sm">Versicherungsnehmer</p>
                 </div>
-              </div>
-
-              {/* Status Info */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-200">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-emerald-100 p-2 rounded-full">
-                      <CheckCircle className="h-5 w-5 text-emerald-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-emerald-600 font-medium">Status</p>
-                      <p className="font-bold text-emerald-800">Abgeschlossen</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-blue-100 p-2 rounded-full">
-                      <Signature className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-blue-600 font-medium">Unterschrift</p>
-                      <p className="font-bold text-blue-800">Erhalten</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-purple-100 p-2 rounded-full">
-                      <FileText className="h-5 w-5 text-purple-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-purple-600 font-medium">Dokument</p>
-                      <p className="font-bold text-purple-800">PDF verfügbar</p>
-                    </div>
-                  </div>
-                </div>
+                <Badge variant="outline" className="font-mono">
+                  {kundendaten.kennzeichen}
+                </Badge>
               </div>
 
               {/* Download Section */}
-              <div className="bg-gradient-to-r from-red-50 to-pink-50 p-6 rounded-xl border border-red-200">
-                <div className="text-center space-y-4">
-                  <div>
-                    <h6 className="font-bold text-gray-800 text-lg mb-2">Abtretungserklärung herunterladen</h6>
-                    <p className="text-gray-600 text-sm">
-                      Das vollständige PDF-Dokument mit allen Daten und Unterschrift
-                    </p>
-                  </div>
-                  
-                  <Button
-                    onClick={() => window.open(`${API_BASE}/api/akten/${actualAkteId}/pdf`, '_blank')}
-                    className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-8 py-3 text-lg font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
-                    size="lg"
-                  >
-                    <Download className="mr-3 h-5 w-5" />
-                    Abtretung PDF herunterladen
-                  </Button>
-                  
-                  <p className="text-xs text-gray-500 mt-2">
-                    📄 PDF wird in einem neuen Tab geöffnet
-                  </p>
-                </div>
-              </div>
-
-              {/* Additional Info */}
-              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                <div className="flex items-center justify-between text-sm text-gray-600">
-                  <span>Akte-ID: #{actualAkteId}</span>
-                  <span>Erstellt: {signedDate}</span>
-                </div>
+              <div className="text-center py-4">
+                <Button
+                  onClick={() => window.open(`${API_BASE}/api/akten/${actualAkteId}/pdf`, '_blank')}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  PDF herunterladen
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -594,8 +542,12 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
                 id="schadenbeschreibung"
                 value={data.schadenbeschreibung}
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => onUpdate('schadenbeschreibung', e.target.value)}
-                placeholder="Detaillierte Beschreibung des Schadens"
-                rows={3}
+                placeholder="Am Fahrzeug mit dem amtlichen Kennzeichen [Kennzeichen eintragen] entstand ein Glasschaden.
+Die Frontscheibe / Seitenscheibe / Heckscheibe weist einen Steinschlag / Riss / Bruch im Bereich [Position der Scheibe, z. B. Fahrerseite unten rechts] auf.
+Der Schaden beeinträchtigt die Sicht des Fahrers / Stabilität der Scheibe / Verkehrssicherheit und macht eine Reparatur bzw. einen Austausch erforderlich.
+Der Schaden trat am [Datum] während der Fahrt / durch einen Steinschlag / äußere Einwirkung auf.
+Weitere Vorschäden an der Scheibe sind nicht vorhanden / wurden nicht festgestellt."
+                rows={10}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -609,7 +561,7 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
                 <input
                   type="checkbox"
                   id="kasko"
-                  checked={data.kasko}
+                  defaultChecked={true}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdate('kasko', e.target.checked)}
                   className="rounded"
                 />
@@ -619,7 +571,6 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
                 <input
                   type="checkbox"
                   id="haftpflicht"
-                  checked={data.haftpflicht}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdate('haftpflicht', e.target.checked)}
                   className="rounded"
                 />
@@ -725,6 +676,45 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
               <small className="text-gray-500">
                 1. Unterschreiben Sie hier • 2. Übernehmen Sie die Unterschrift • 3. Speichern Sie die Abtretung
               </small>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Component */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg max-w-md w-full mx-4">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                {showModal.type === 'error' && <AlertCircle className="h-5 w-5 text-red-500" />}
+                {showModal.type === 'success' && <CheckCircle className="h-5 w-5 text-green-500" />}
+                {showModal.type === 'info' && <AlertCircle className="h-5 w-5 text-blue-500" />}
+                {showModal.title}
+              </h3>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setShowModal(null)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="p-4">
+              <p className="text-gray-700">{showModal.message}</p>
+            </div>
+            <div className="flex justify-end gap-2 p-4 border-t">
+              <Button 
+                onClick={() => {
+                  showModal.onConfirm?.()
+                  setShowModal(null)
+                }}
+                className={showModal.type === 'error' ? 'bg-red-600 hover:bg-red-700' : 
+                          showModal.type === 'success' ? 'bg-green-600 hover:bg-green-700' : 
+                          'bg-blue-600 hover:bg-blue-700'}
+              >
+                OK
+              </Button>
             </div>
           </div>
         </div>

@@ -31,6 +31,8 @@ interface KundendatenData {
   scheibe: string
   auftragstyp: string
   vorsteuer_berechtigt: string
+  marke: string
+  model: string
 }
 
 interface KundendatenStepProps {
@@ -175,6 +177,16 @@ export default function KundendatenStep({ data, onUpdate }: KundendatenStepProps
           onUpdate('vin', result.vin)
           setVinValidation(result.vin_valid ? 'valid' : 'invalid')
         }
+        if (result.d1) {
+          onUpdate('marke', result.d1)
+        }else if(result.maker){
+          onUpdate('marke', result.maker)
+        }
+        if (result.model) {
+          onUpdate('model', result.model)
+        }
+
+        console.log(result);
 
         setUploadStatus('success')
         setUploadMessage('Fahrzeugschein erfolgreich gescannt und Felder ausgefüllt!')
@@ -445,6 +457,26 @@ export default function KundendatenStep({ data, onUpdate }: KundendatenStepProps
             <option value="1000">1000 €</option>
           </select>
         </div>
+      </div>
+
+      <div>
+        <Label htmlFor="marke">Marke:</Label>
+        <Input
+          id="marke"
+          value={data.marke}
+          onChange={(e) => onUpdate('marke', e.target.value)}
+          placeholder="Fahrzeugmarke"
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="model">Model:</Label>
+        <Input
+          id="model"
+          value={data.model}
+          onChange={(e) => onUpdate('model', e.target.value)}
+          placeholder="Model"
+        />
       </div>
 
       {/* VIN Eingabe */}

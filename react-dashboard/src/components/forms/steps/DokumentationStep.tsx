@@ -15,7 +15,8 @@ import {
     AlertTriangle,
     Loader2,
     Undo,
-    Check
+    Check,
+    X
 } from 'lucide-react'
 
 interface KundendatenData {
@@ -67,6 +68,12 @@ export default function DokumentationStep({
     const [selectAll, setSelectAll] = useState(true)
     const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
+    const [showModal, setShowModal] = useState<{
+        type: 'confirm' | 'error' | 'success',
+        title: string,
+        message: string,
+        onConfirm?: () => void
+    } | null>(null)
 
     // Kalkulation Info anzeigen
     const selectedKalkulation = Array.isArray(verfugbareKalkulationen) 
@@ -115,7 +122,11 @@ export default function DokumentationStep({
     // PDF generieren
     const generatePDF = async () => {
         if (selectedSections.length === 0) {
-            alert('Bitte wählen Sie mindestens einen Bereich aus!')
+            setShowModal({
+                type: 'error',
+                title: 'Fehler',
+                message: 'Bitte wählen Sie mindestens einen Bereich aus!'
+            })
             return
         }
 
@@ -156,7 +167,11 @@ export default function DokumentationStep({
 
         } catch (error) {
             console.error('PDF-Fehler:', error)
-            alert('Fehler beim Generieren des PDFs: ' + (error as Error).message)
+            setShowModal({
+                type: 'error',
+                title: 'PDF-Fehler',
+                message: 'Fehler beim Generieren des PDFs: ' + (error as Error).message
+            })
         } finally {
             setIsGeneratingPDF(false)
         }
@@ -169,27 +184,33 @@ export default function DokumentationStep({
         setIsUpdatingStatus(true)
 
         try {
-            const formData = new FormData()
-            formData.append('action', 'update_status')
-            formData.append('akte_id', akteId.toString())
-            formData.append('status', newStatus)
-
-            const response = await fetch('/api/akten/update-status', {
-                method: 'POST',
-                body: formData
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/akten/${akteId}/status`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    status: newStatus
+                })
             })
 
-            const data = await response.json()
-
-            if (data.success) {
-                alert('Status erfolgreich geändert!')
-                window.location.reload()
-            } else {
-                throw new Error(data.message || 'Fehler beim Aktualisieren des Status')
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`)
             }
+
+            setShowModal({
+                type: 'success',
+                title: 'Erfolg',
+                message: 'Status erfolgreich geändert!',
+                onConfirm: () => window.location.reload()
+            })
         } catch (error) {
             console.error('Status-Update Fehler:', error)
-            alert('Fehler: ' + (error as Error).message)
+            setShowModal({
+                type: 'error',
+                title: 'Fehler',
+                message: 'Fehler beim Aktualisieren: ' + (error as Error).message
+            })
         } finally {
             setIsUpdatingStatus(false)
         }
@@ -197,16 +218,28 @@ export default function DokumentationStep({
 
     // Akte schließen
     const closeAkte = () => {
-        if (confirm('Möchten Sie diese Akte wirklich abschließen?\n\nDie Akte wird als "Abgeschlossen" markiert.')) {
-            updateAkteStatus('Abgeschlossen')
-        }
+        setShowModal({
+            type: 'confirm',
+            title: 'Akte abschließen',
+            message: 'Möchten Sie diese Akte wirklich abschließen?\n\nDie Akte wird als "Abgeschlossen" markiert.',
+            onConfirm: () => {
+                setShowModal(null)
+                updateAkteStatus('Abgeschlossen')
+            }
+        })
     }
 
     // Akte wieder öffnen
     const reopenAkte = () => {
-        if (confirm('Möchten Sie diese Akte wieder öffnen?\n\nDie Akte wird wieder als "Entwurf" markiert.')) {
-            updateAkteStatus('Entwurf')
-        }
+        setShowModal({
+            type: 'confirm',
+            title: 'Akte wieder öffnen',
+            message: 'Möchten Sie diese Akte wieder öffnen?\n\nDie Akte wird wieder als "Entwurf" markiert.',
+            onConfirm: () => {
+                setShowModal(null)
+                updateAkteStatus('Entwurf')
+            }
+        })
     }
 
     return (
@@ -227,143 +260,127 @@ export default function DokumentationStep({
                         </AlertDescription>
                     </Alert>
 
-                    {/* Sections Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    {/* Sections List */}
+                    <div className="space-y-4 mb-6">
                         {/* Kundendaten */}
-                        <Card className="border">
-                            <CardContent className="p-4">
-                                <div className="flex items-start space-x-2">
-                                    <input
-                                        type="checkbox"
-                                        id="pdf_kundendaten"
-                                        checked={selectedSections.includes('kundendaten')}
-                                        onChange={(e) => handleSectionChange('kundendaten', e.target.checked)}
-                                        className="mt-1"
-                                    />
-                                    <div className="space-y-1">
-                                        <label htmlFor="pdf_kundendaten" className="text-sm font-medium flex items-center gap-2">
-                                            <User className="h-4 w-4" />
-                                            Kundendaten
-                                        </label>
-                                        <p className="text-xs text-muted-foreground">
-                                            Name, Adresse, Fahrzeugdaten, Versicherung
-                                        </p>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
+                        <div className="flex items-start space-x-3 p-4 border rounded-lg">
+                            <input
+                                type="checkbox"
+                                id="pdf_kundendaten"
+                                checked={selectedSections.includes('kundendaten')}
+                                onChange={(e) => handleSectionChange('kundendaten', e.target.checked)}
+                                className="mt-1"
+                            />
+                            <div className="flex-1">
+                                <label htmlFor="pdf_kundendaten" className="text-sm font-medium flex items-center gap-2 cursor-pointer">
+                                    <User className="h-4 w-4" />
+                                    Kundendaten
+                                </label>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    Name, Adresse, Fahrzeugdaten, Versicherung
+                                </p>
+                            </div>
+                        </div>
 
                         {/* Schadenbilder */}
-                        <Card className="border">
-                            <CardContent className="p-4">
-                                <div className="flex items-start space-x-2">
-                                    <input
-                                        type="checkbox"
-                                        id="pdf_bilder"
-                                        checked={selectedSections.includes('bilder')}
-                                        onChange={(e) => handleSectionChange('bilder', e.target.checked)}
-                                        className="mt-1"
-                                    />
-                                    <div className="space-y-1">
-                                        <label htmlFor="pdf_bilder" className="text-sm font-medium flex items-center gap-2">
-                                            <Images className="h-4 w-4" />
-                                            Schadenbilder
-                                        </label>
-                                        <p className="text-xs text-muted-foreground">
-                                            Alle hochgeladenen Schadenfotos ({bilder.length} Bilder)
-                                        </p>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
+                        <div className="flex items-start space-x-3 p-4 border rounded-lg">
+                            <input
+                                type="checkbox"
+                                id="pdf_bilder"
+                                checked={selectedSections.includes('bilder')}
+                                onChange={(e) => handleSectionChange('bilder', e.target.checked)}
+                                className="mt-1"
+                            />
+                            <div className="flex-1">
+                                <label htmlFor="pdf_bilder" className="text-sm font-medium flex items-center gap-2 cursor-pointer">
+                                    <Images className="h-4 w-4" />
+                                    Schadenbilder
+                                </label>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    Alle hochgeladenen Schadenfotos ({bilder.length} Bilder)
+                                </p>
+                            </div>
+                        </div>
 
                         {/* Abtretungserklärung */}
-                        <Card className="border">
-                            <CardContent className="p-4">
-                                <div className="flex items-start space-x-2">
-                                    <input
-                                        type="checkbox"
-                                        id="pdf_abtretung"
-                                        checked={selectedSections.includes('abtretung')}
-                                        onChange={(e) => handleSectionChange('abtretung', e.target.checked)}
-                                        disabled={!isAbtretungSigned}
-                                        className="mt-1"
-                                    />
-                                    <div className="space-y-1">
-                                        <label htmlFor="pdf_abtretung" className="text-sm font-medium flex items-center gap-2">
-                                            <FileSignature className="h-4 w-4" />
-                                            Abtretungserklärung
-                                        </label>
-                                        {!isAbtretungSigned ? (
-                                            <p className="text-xs text-red-600">Noch nicht unterschrieben</p>
-                                        ) : (
-                                            <p className="text-xs text-green-600">
-                                                Unterschrieben am {akte?.signiert_am ? new Date(akte.signiert_am).toLocaleDateString('de-DE') : ''}
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
+                        <div className="flex items-start space-x-3 p-4 border rounded-lg">
+                            <input
+                                type="checkbox"
+                                id="pdf_abtretung"
+                                checked={selectedSections.includes('abtretung')}
+                                onChange={(e) => handleSectionChange('abtretung', e.target.checked)}
+                                disabled={!isAbtretungSigned}
+                                className="mt-1"
+                            />
+                            <div className="flex-1">
+                                <label htmlFor="pdf_abtretung" className="text-sm font-medium flex items-center gap-2 cursor-pointer">
+                                    <FileSignature className="h-4 w-4" />
+                                    Abtretungserklärung
+                                </label>
+                                {!isAbtretungSigned ? (
+                                    <p className="text-xs text-red-600 mt-1">Noch nicht unterschrieben</p>
+                                ) : (
+                                    <p className="text-xs text-green-600 mt-1">
+                                        Unterschrieben am {akte?.signiert_am ? new Date(akte.signiert_am).toLocaleDateString('de-DE') : ''}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
 
                         {/* Kalkulation */}
-                        <Card className="border">
-                            <CardContent className="p-4">
-                                <div className="flex items-start space-x-2">
-                                    <input
-                                        type="checkbox"
-                                        id="pdf_kalkulation"
-                                        checked={selectedSections.includes('kalkulation')}
-                                        onChange={(e) => handleKalkulationChange(e.target.checked)}
-                                        disabled={verfugbareKalkulationen.length === 0}
-                                        className="mt-1"
-                                    />
-                                    <div className="space-y-1 flex-1">
-                                        <label htmlFor="pdf_kalkulation" className="text-sm font-medium flex items-center gap-2">
-                                            <Calculator className="h-4 w-4" />
-                                            Kalkulation
+                        <div className="flex items-start space-x-3 p-4 border rounded-lg">
+                            <input
+                                type="checkbox"
+                                id="pdf_kalkulation"
+                                checked={selectedSections.includes('kalkulation')}
+                                onChange={(e) => handleKalkulationChange(e.target.checked)}
+                                disabled={verfugbareKalkulationen.length === 0}
+                                className="mt-1"
+                            />
+                            <div className="flex-1">
+                                <label htmlFor="pdf_kalkulation" className="text-sm font-medium flex items-center gap-2 cursor-pointer">
+                                    <Calculator className="h-4 w-4" />
+                                    Kalkulation
+                                </label>
+                                {verfugbareKalkulationen.length === 0 ? (
+                                    <p className="text-xs text-red-600 mt-1">Keine Kalkulationen verfügbar</p>
+                                ) : (
+                                    <p className="text-xs text-green-600 mt-1">
+                                        {verfugbareKalkulationen.length} Kalkulation(en) verfügbar
+                                    </p>
+                                )}
+
+                                {/* Kalkulation Selection */}
+                                {showKalkulationSelection && verfugbareKalkulationen.length > 0 && (
+                                    <div className="mt-3 p-3 bg-gray-50 rounded-md">
+                                        <label className="text-xs font-medium text-gray-700 mb-2 block">
+                                            Kalkulation auswählen:
                                         </label>
-                                        {verfugbareKalkulationen.length === 0 ? (
-                                            <p className="text-xs text-red-600">Keine Kalkulationen verfügbar</p>
-                                        ) : (
-                                            <p className="text-xs text-green-600">
-                                                {verfugbareKalkulationen.length} Kalkulation(en) verfügbar
-                                            </p>
-                                        )}
+                                        <select
+                                            className="w-full text-xs border border-gray-300 rounded px-2 py-1"
+                                            value={selectedKalkulationId}
+                                            onChange={(e) => setSelectedKalkulationId(e.target.value)}
+                                        >
+                                            <option value="">-- Bitte wählen --</option>
+                                            {verfugbareKalkulationen.map((kalk) => (
+                                                <option key={kalk.id} value={kalk.id.toString()}>
+                                                    {kalk.filename} ({kalk.brutto.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })} brutto)
+                                                </option>
+                                            ))}
+                                        </select>
 
-                                        {/* Kalkulation Selection */}
-                                        {showKalkulationSelection && verfugbareKalkulationen.length > 0 && (
-                                            <div className="mt-3 p-3 bg-gray-50 rounded-md">
-                                                <label className="text-xs font-medium text-gray-700 mb-2 block">
-                                                    Kalkulation auswählen:
-                                                </label>
-                                                <select
-                                                    className="w-full text-xs border border-gray-300 rounded px-2 py-1"
-                                                    value={selectedKalkulationId}
-                                                    onChange={(e) => setSelectedKalkulationId(e.target.value)}
-                                                >
-                                                    <option value="">-- Bitte wählen --</option>
-                                                    {verfugbareKalkulationen.map((kalk) => (
-                                                        <option key={kalk.id} value={kalk.id.toString()}>
-                                                            {kalk.filename} ({kalk.brutto.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })} brutto)
-                                                        </option>
-                                                    ))}
-                                                </select>
-
-                                                {/* Kalkulation Info */}
-                                                {selectedKalkulation && (
-                                                    <div className="mt-2 text-xs text-gray-600 space-y-1">
-                                                        <div><strong>Brutto:</strong> {selectedKalkulation.brutto.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</div>
-                                                        <div><strong>Netto:</strong> {selectedKalkulation.netto.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</div>
-                                                        <div><strong>Erstellt:</strong> {new Date(selectedKalkulation.erstellt_am).toLocaleString('de-DE')}</div>
-                                                    </div>
-                                                )}
+                                        {/* Kalkulation Info */}
+                                        {selectedKalkulation && (
+                                            <div className="mt-2 text-xs text-gray-600 space-y-1">
+                                                <div><strong>Brutto:</strong> {selectedKalkulation.brutto.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</div>
+                                                <div><strong>Netto:</strong> {selectedKalkulation.netto.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</div>
+                                                <div><strong>Erstellt:</strong> {new Date(selectedKalkulation.erstellt_am).toLocaleString('de-DE')}</div>
                                             </div>
                                         )}
                                     </div>
-                                </div>
-                            </CardContent>
-                        </Card>
+                                )}
+                            </div>
+                        </div>
                     </div>
 
                     <hr className="my-6" />
@@ -453,16 +470,63 @@ export default function DokumentationStep({
             </Card>
 
             {/* Navigation */}
-            <div className="flex justify-between">
+            <div className="flex justify-start">
                 <Button variant="outline">
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Zurück
                 </Button>
-                <Button variant="secondary">
-                    <Save className="mr-2 h-4 w-4" />
-                    Zwischenspeichern
-                </Button>
             </div>
+
+            {/* Modal */}
+            {showModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg max-w-md w-full mx-4">
+                        <div className="flex items-center justify-between p-4 border-b">
+                            <h3 className="text-lg font-semibold">{showModal.title}</h3>
+                            <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => setShowModal(null)}
+                            >
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        <div className="p-4">
+                            <p className="text-gray-700 whitespace-pre-line">{showModal.message}</p>
+                        </div>
+                        <div className="flex justify-end gap-2 p-4 border-t">
+                            <Button 
+                                variant="outline" 
+                                onClick={() => setShowModal(null)}
+                            >
+                                {showModal.type === 'confirm' ? 'Abbrechen' : 'OK'}
+                            </Button>
+                            {showModal.type === 'confirm' && (
+                                <Button 
+                                    onClick={() => {
+                                        showModal.onConfirm?.()
+                                        setShowModal(null)
+                                    }}
+                                    className="bg-green-600 hover:bg-green-700"
+                                >
+                                    Bestätigen
+                                </Button>
+                            )}
+                            {showModal.type === 'success' && showModal.onConfirm && (
+                                <Button 
+                                    onClick={() => {
+                                        showModal.onConfirm?.()
+                                        setShowModal(null)
+                                    }}
+                                    className="bg-blue-600 hover:bg-blue-700"
+                                >
+                                    OK
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

@@ -49,6 +49,8 @@ interface KundendatenData {
     scheibe: string
     auftragstyp: string
     vorsteuer_berechtigt: string
+    marke: string
+    model: string
 }
 
 interface AbtretungData {
@@ -207,11 +209,13 @@ export default function AkteForm() {
             schadennummer: '',
             kennzeichen: '',
             versicherungsnummer: '',
-            selbstbeteiligung: '300',
+            selbstbeteiligung: '150',
             vin: '',
             scheibe: 'Frontscheibe',
             auftragstyp: 'Kostenvoranschlag',
-            vorsteuer_berechtigt: 'Nein'
+            vorsteuer_berechtigt: 'Nein',
+            marke: '',
+            model: '' 
         },
         abtretung: {
             kundenname: '',
@@ -381,7 +385,9 @@ export default function AkteForm() {
                     vin: akteData.vin || '',
                     scheibe: akteData.scheibe || 'Frontscheibe',
                     auftragstyp: akteData.auftragstyp || 'Kostenvoranschlag',
-                    vorsteuer_berechtigt: akteData.vorsteuer_berechtigt || 'Nein'
+                    vorsteuer_berechtigt: akteData.vorsteuer_berechtigt || 'Nein',
+                    marke: akteData.marke || '',
+                    model: akteData.model || ''
                 },
                 // Abtretungsdaten laden falls vorhanden
                 abtretung: akteData.abtretung_data ? {

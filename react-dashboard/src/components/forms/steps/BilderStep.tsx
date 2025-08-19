@@ -50,65 +50,105 @@ export default function BilderStep({ isAkteSaved, akteId, onImagesUpdate }: Bild
         }
     }, [akteId, isAkteSaved])
 
+    // Bildkomprimierung
+    const compressImage = (file: File, maxWidth: number = 1920, quality: number = 0.8): Promise<File> => {
+        return new Promise((resolve) => {
+            const canvas = document.createElement('canvas')
+            const ctx = canvas.getContext('2d')
+            const img = new Image()
+            
+            img.onload = () => {
+                // Berechne neue Dimensionen
+                let { width, height } = img
+                
+                if (width > maxWidth) {
+                    height = (height * maxWidth) / width
+                    width = maxWidth
+                }
+                
+                canvas.width = width
+                canvas.height = height
+                
+                // Zeichne komprimiertes Bild
+                ctx?.drawImage(img, 0, 0, width, height)
+                
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        const compressedFile = new File([blob], file.name, {
+                            type: 'image/jpeg',
+                            lastModified: Date.now()
+                        })
+                        console.log(`${file.name}: ${formatFileSize(file.size)} → ${formatFileSize(compressedFile.size)}`)
+                        resolve(compressedFile)
+                    } else {
+                        resolve(file) // Fallback
+                    }
+                }, 'image/jpeg', quality)
+            }
+            
+            img.src = URL.createObjectURL(file)
+        })
+    }
+
     const uploadFiles = async (files: File[]) => {
         if (!akteId) {
             alert('Keine Akte-ID vorhanden. Bitte speichern Sie zuerst die Kundendaten.')
             return
         }
 
-    // SOFORT selectedFiles leeren
-    setSelectedFiles([])
-    if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-    }
-
-    setIsUploading(true)
-    setUploadProgress(0)
-    setUploadStatus('Upload wird vorbereitet...')
-
-    try {
-        const formData = new FormData()
-        formData.append('akte_id', akteId.toString())
-        
-        files.forEach(file => {
-            formData.append('images[]', file)
-        })
-
-        const response = await fetch(`${API_BASE}/api/akten/${akteId}/bilder`, {
-            method: 'POST',
-            body: formData
-        })
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        // SOFORT selectedFiles leeren
+        setSelectedFiles([])
+        if (fileInputRef.current) {
+            fileInputRef.current.value = ''
         }
 
-        const data = await response.json()
-
-        if (data.success) {
-            setUploadProgress(100)
-            setUploadStatus(`Upload erfolgreich! ${data.uploaded_count || 0} Datei(en) hochgeladen.`)
-            
-            // Bilder neu laden
-            await loadImages()
-
-            // Progress nach 3 Sekunden ausblenden
-            setTimeout(() => {
-                setIsUploading(false)
-                setUploadProgress(0)
-                setUploadStatus('')
-            }, 3000)
-        } else {
-            throw new Error(data.message || 'Unbekannter Fehler')
-        }
-    } catch (error) {
-        console.error('Upload-Fehler:', error)
-        alert('Upload-Fehler: ' + (error as Error).message)
-        setIsUploading(false)
+        setIsUploading(true)
         setUploadProgress(0)
-        setUploadStatus('')
+        setUploadStatus('Upload wird vorbereitet...')
+
+        try {
+            const formData = new FormData()
+            formData.append('akte_id', akteId.toString())
+            
+            files.forEach(file => {
+                formData.append('images[]', file)
+            })
+
+            const response = await fetch(`${API_BASE}/api/akten/${akteId}/bilder`, {
+                method: 'POST',
+                body: formData
+            })
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+            }
+
+            const data = await response.json()
+
+            if (data.success) {
+                setUploadProgress(100)
+                setUploadStatus(`Upload erfolgreich! ${data.uploaded_count || 0} Datei(en) hochgeladen.`)
+                
+                // Bilder neu laden
+                await loadImages()
+
+                // Progress nach 3 Sekunden ausblenden
+                setTimeout(() => {
+                    setIsUploading(false)
+                    setUploadProgress(0)
+                    setUploadStatus('')
+                }, 3000)
+            } else {
+                throw new Error(data.message || 'Unbekannter Fehler')
+            }
+        } catch (error) {
+            console.error('Upload-Fehler:', error)
+            alert('Upload-Fehler: ' + (error as Error).message)
+            setIsUploading(false)
+            setUploadProgress(0)
+            setUploadStatus('')
+        }
     }
-}
 
     const loadImages = async () => {
         if (!akteId) return
@@ -148,29 +188,47 @@ export default function BilderStep({ isAkteSaved, akteId, onImagesUpdate }: Bild
         processFiles(files)
     }
 
-    const processFiles = (files: File[]) => {
-    console.log('processFiles called with files:', files.length)
-    console.log('akteId:', akteId)
-    
-    // Filter nur Bilder
-    const imageFiles = files.filter(file => file.type.startsWith('image/'))
-    console.log('imageFiles:', imageFiles.length)
+    const processFiles = async (files: File[]) => {
+        console.log('processFiles called with files:', files.length)
+        console.log('akteId:', akteId)
+        
+        // Filter nur Bilder
+        const imageFiles = files.filter(file => file.type.startsWith('image/'))
+        console.log('imageFiles:', imageFiles.length)
 
-    if (imageFiles.length === 0) {
-        alert('Bitte wählen Sie nur Bilddateien aus (JPG, PNG).')
-        return
+        if (imageFiles.length === 0) {
+            alert('Bitte wählen Sie nur Bilddateien aus (JPG, PNG).')
+            return
+        }
+
+        // Komprimiere alle Bilder
+        setUploadStatus('Bilder werden komprimiert...')
+        setIsUploading(true)
+        
+        try {
+            const compressedFiles = await Promise.all(
+                imageFiles.map(async (file) => {
+                    if (file.size > 2 * 1024 * 1024) { // Größer als 2MB
+                        console.log(`Komprimiere ${file.name} (${formatFileSize(file.size)})`)
+                        return await compressImage(file)
+                    }
+                    return file
+                })
+            )
+            
+            console.log('Komprimierung abgeschlossen')
+            
+            // Direkt hochladen
+            if (compressedFiles.length > 0) {
+                console.log('Starting upload...')
+                uploadFiles(compressedFiles)
+            }
+        } catch (error) {
+            console.error('Komprimierungsfehler:', error)
+            setIsUploading(false)
+            alert('Fehler beim Komprimieren der Bilder')
+        }
     }
-
-    // ... validierungen ...
-
-    // Direkt hochladen wenn akteId vorhanden
-    if (imageFiles.length > 0) {
-        console.log('Starting upload...')
-        uploadFiles(imageFiles)
-    } else {
-        console.log('No upload - imageFiles.length:', imageFiles.length)
-    }
-}
 
     const removeFile = (index: number) => {
         const newFiles = selectedFiles.filter((_, i) => i !== index)
@@ -249,7 +307,7 @@ export default function BilderStep({ isAkteSaved, akteId, onImagesUpdate }: Bild
                             Bilder hier ablegen oder klicken zum Auswählen
                         </div>
                         <div className="text-gray-500 text-sm">
-                            Unterstützte Formate: JPG, JPEG, PNG • Max. 5MB pro Datei • Max. 10 Bilder gesamt
+                            Unterstützte Formate: JPG, JPEG, PNG • Bilder größer als 2MB werden automatisch komprimiert • Max. 10 Bilder gesamt
                         </div>
                         <input
                             ref={fileInputRef}

@@ -22,7 +22,8 @@ import {
   Clock,
   XCircle,
   AlertCircle,
-  Home
+  Home,
+  ImageIcon
 } from 'lucide-react'
 
 interface Akte {
@@ -32,16 +33,21 @@ interface Akte {
   kennzeichen: string
   schadenort: string
   status: string
+  first_image?: string // Erstes Bild der Akte
 }
 
 export default function Dashboard() {
   const { user } = useUser()
   const navigate = useNavigate()
   const [akten, setAkten] = useState<Akte[]>([])
+  const [aktenImages, setAktenImages] = useState<{[akteId: number]: string}>({})
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('alle')
   const [error, setError] = useState<string | null>(null)
+
+  // API URL from environment
+  const API_BASE = import.meta.env.VITE_API_URL.replace('/api', '')
 
   useEffect(() => {
     loadAkten()
@@ -53,13 +59,48 @@ export default function Dashboard() {
       setError(null)
       
       const data = await aktenApi.getAkten()
+      console.log('Loaded akten data:', data)
       setAkten(data || [])
+      
+      // Lade erstes Bild für jede Akte
+      if (data && data.length > 0) {
+        loadFirstImages(data)
+      }
       
     } catch (err) {
       setError('Fehler beim Laden der Akten: ' + (err as Error).message)
     } finally {
       setLoading(false)
     }
+  }
+
+  // Erstes Bild für jede Akte laden
+  const loadFirstImages = async (aktenList: Akte[]) => {
+    const imagePromises = aktenList.map(async (akte) => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/akten/${akte.id}/bilder`)
+        const data = await response.json()
+        
+        if (data.success && data.bilder && data.bilder.length > 0) {
+          return { akteId: akte.id, filename: data.bilder[0].filename }
+        }
+        return null
+      } catch (error) {
+        console.error(`Fehler beim Laden der Bilder für Akte ${akte.id}:`, error)
+        return null
+      }
+    })
+
+    const results = await Promise.all(imagePromises)
+    const imageMap: {[akteId: number]: string} = {}
+    
+    results.forEach(result => {
+      if (result) {
+        imageMap[result.akteId] = result.filename
+      }
+    })
+    
+    setAktenImages(imageMap)
   }
 
   // Filtering Logic
@@ -121,6 +162,16 @@ export default function Dashboard() {
     })
   }
 
+  // Bild-URL generieren
+  const getImageUrl = (akte: Akte) => {
+    const filename = aktenImages[akte.id]
+    console.log('Akte:', akte.id, 'filename from state:', filename) // DEBUG
+    if (!filename) return null
+    const url = `${API_BASE}/public/akte_bilder/akte_${akte.id}/${filename}`
+    console.log('Generated URL:', url) // DEBUG
+    return url
+  }
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -164,6 +215,15 @@ export default function Dashboard() {
             <CardTitle className="text-lg">Filter & Suche</CardTitle>
           </CardHeader>
           <CardContent>
+            {/* Status Legende */}
+            <div className="flex flex-wrap gap-2 mb-4 p-3 bg-gray-50 rounded-lg">
+              <div className="text-xs text-gray-600 mr-2">Status:</div>
+              <Badge className="bg-yellow-100 text-yellow-800 text-xs"><AlertCircle className="w-2 h-2 mr-1" />Entwurf</Badge>
+              <Badge className="bg-blue-100 text-blue-800 text-xs"><Clock className="w-2 h-2 mr-1" />In Bearbeitung</Badge>
+              <Badge className="bg-green-100 text-green-800 text-xs"><CheckCircle className="w-2 h-2 mr-1" />Abgeschlossen</Badge>
+              <Badge className="bg-red-100 text-red-800 text-xs"><XCircle className="w-2 h-2 mr-1" />Storniert</Badge>
+            </div>
+            
             <div className="flex flex-col sm:flex-row gap-4 mb-4">
               <div className="flex-1">
                 <div className="relative">
@@ -214,7 +274,37 @@ export default function Dashboard() {
                     key={akte.id}
                     className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      {/* Bild-Vorschau */}
+                      <div className="flex-shrink-0">
+                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 border-2 border-gray-200">
+                          {getImageUrl(akte) ? (
+                            <img
+                              src={getImageUrl(akte)!}
+                              alt={`Schadensbild ${akte.kunde}`}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                // Fallback bei Ladefehler
+                                const target = e.target as HTMLImageElement
+                                target.style.display = 'none'
+                                target.parentElement!.innerHTML = `
+                                  <div class="w-full h-full flex items-center justify-center bg-gray-100">
+                                    <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                    </svg>
+                                  </div>
+                                `
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                              <ImageIcon className="w-6 h-6 text-gray-400" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Akten-Details */}
                       <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
                         {/* Kunde & Kennzeichen */}
                         <div className="space-y-1">
@@ -250,14 +340,7 @@ export default function Dashboard() {
                       </div>
 
                       {/* Actions */}
-                      <div className="flex items-center gap-2 ml-4">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleAkteAnzeigen(akte.id)}
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
+                      <div className="flex items-center gap-2 flex-shrink-0">
                         <Button
                           variant="outline"
                           size="sm"

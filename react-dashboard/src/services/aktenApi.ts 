@@ -216,7 +216,7 @@ class AktenApiService {
         schadennummer: apiData.schadennummer || '',
         kennzeichen: apiData.kennzeichen || '',
         versicherungsnummer: apiData.versicherungsnummer || '',
-        selbstbeteiligung: (apiData.selbstbeteiligung as any) || '300',
+        selbstbeteiligung: (apiData.selbstbeteiligung as any) || '150',
         vin: apiData.vin || '',
         scheibe: apiData.scheibe || 'Frontscheibe',
         auftragstyp: (apiData.auftragstyp as any) || 'Kostenvoranschlag',
