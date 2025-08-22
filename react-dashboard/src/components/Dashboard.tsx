@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import DashboardLayout from './DashboardLayout'
 import { aktenApi } from '../lib/aktenApi'
+import ZOnlineApi from '@/components/Zonline'
 import {
   Plus,
   Search,
@@ -210,6 +211,9 @@ export default function Dashboard() {
         )}
 
         {/* Filters & Search */}
+
+        <ZOnlineApi />
+
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Filter & Suche</CardTitle>

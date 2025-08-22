@@ -1268,6 +1268,38 @@ app.patch('/api/akten/:id/status', async (req, res) => {
   }
 })
 
+// Z@Online API Proxy - NACH DEN ANDEREN ROUTES EINFÜGEN
+app.post('/api/zonline', async (req, res) => {
+  try {
+    const xmlRequest = req.body;
+    
+    // Z@Online API über VPN-Verbindung
+    const response = await fetch('https://185.22.150.228:443/Z@Online', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/xml',
+        'SOAPAction': 'ResponsibleInsuranceRequest'
+      },
+      body: xmlRequest,
+      // VPN-Konfiguration würde hier stehen
+      // agent: vpnAgent // falls nötig
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Z@Online API Error: ${response.status}`);
+    }
+    
+    const responseXml = await response.text();
+    
+    res.setHeader('Content-Type', 'application/xml');
+    res.send(responseXml);
+    
+  } catch (error) {
+    console.error('Z@Online API Fehler:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
 app.listen(3001, () => {
   console.log('API Server running on http://localhost:3001');
