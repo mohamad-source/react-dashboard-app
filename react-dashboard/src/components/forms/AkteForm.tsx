@@ -58,25 +58,25 @@ interface AbtretungData {
     kundenname: string
     mobilnr: string
     adresse: string
-    
+
     // Versicherung
     versicherungsschein: string
     schadennummer: string
     versicherungsname: string
     selbstbeteiligung: string
     vorsteuer: string
-    
+
     // Fahrzeug
     marke: string
     modell: string
     kennzeichen: string
     schadenzeitpunkt: string
     schadenbeschreibung: string
-    
+
     // Abtretung
     kasko: boolean
     haftpflicht: boolean
-    
+
     // Unterschrift
     signatureData: string
     isSignatureApplied: boolean
@@ -153,7 +153,7 @@ const formSteps: FormStep[] = [
 // Erweiterte API mit fehlenden Methoden
 const extendedAktenApi = {
     ...aktenApi,
-    
+
     async getBilder(akteId: number) {
         try {
             const response = await fetch(`${import.meta.env.VITE_API_URL}/akten/${akteId}/bilder`)
@@ -184,11 +184,12 @@ export default function AkteForm() {
     console.log('Current step:', currentStep, 'Max steps:', formSteps.length - 1)
     const [isLoading, setIsLoading] = useState(false)
     const [savedAkteId, setSavedAkteId] = useState<number | null>(
-        id ? parseInt(id) : null 
+        id ? parseInt(id) : null
     )
     const [currentVIN, setCurrentVIN] = useState<string>('')
     const [vinCopied, setVinCopied] = useState(false)
-    
+    const [showKundendatenValidation, setShowKundendatenValidation] = useState(false)
+
     // Neue State-Variablen für Dokumentation
     const [bilder, setBilder] = useState<any[]>([])
     const [uploadedImages, setUploadedImages] = useState<any[]>([])
@@ -197,7 +198,7 @@ export default function AkteForm() {
     const [akte, setAkte] = useState<Akte | null>(null)
     const [isAbtretungSigned, setIsAbtretungSigned] = useState(false)
     const [isAkteCompleted, setIsAkteCompleted] = useState(false)
-    
+
     const [formData, setFormData] = useState<FormData>({
         kundendaten: {
             kunde: '',
@@ -212,10 +213,10 @@ export default function AkteForm() {
             selbstbeteiligung: '150',
             vin: '',
             scheibe: 'Frontscheibe',
-            auftragstyp: 'Kostenvoranschlag',
+            auftragstyp: 'Reparaturauftrag',
             vorsteuer_berechtigt: 'Nein',
             marke: '',
-            model: '' 
+            model: ''
         },
         abtretung: {
             kundenname: '',
@@ -259,32 +260,32 @@ export default function AkteForm() {
             loadAkteData()
         }
     }, [id, savedAkteId])
-    
+
     useEffect(() => {
         setCurrentVIN(formData.kundendaten.vin)
     }, [formData.kundendaten.vin])
 
     const saveCurrentStep = async () => {
         const currentStepId = formSteps[currentStep].id
-        
+
         if (currentStepId === 'kundendaten') {
+            // Validierung beim Tab-Wechsel aktivieren, aber nicht blockieren
+            if (!isStepValid(currentStepId)) {
+                setShowKundendatenValidation(true)
+            }
+
             try {
-            if (!savedAkteId) {
-                // NEUE AKTE ERSTELLEN beim ersten Tab-Wechsel
-                console.log('Erstelle neue Akte beim Tab-Wechsel')
-                const result = await aktenApi.createAkte(formData.kundendaten)
-                setSavedAkteId(result.id)
-                console.log('Neue Akte erstellt mit ID:', result.id)
-            } else {
-                // BESTEHENDE AKTE AKTUALISIEREN
-                await aktenApi.updateAkte(savedAkteId, formData.kundendaten)
-                console.log('Kundendaten automatisch gespeichert beim Tab-Wechsel')
-            }
+                if (!savedAkteId) {
+                    const result = await aktenApi.createAkte(formData.kundendaten)
+                    setSavedAkteId(result.id)
+                } else {
+                    await aktenApi.updateAkte(savedAkteId, formData.kundendaten)
+                }
             } catch (error) {
-            console.error('Fehler beim automatischen Speichern:', error)
+                console.error('Fehler beim automatischen Speichern:', error)
             }
         }
-        }
+    }
 
     // Prüfen ob alle Pflichtfelder eines Schritts ausgefüllt sind
     const isStepValid = (stepId: string): boolean => {
@@ -312,7 +313,7 @@ export default function AkteForm() {
         if (stepId === 'dokumentation') {
             // Hier könnte man prüfen ob tatsächlich Dokumentation ausgefüllt wurde
             return false // Nie grün werden lassen bis echte Validierung implementiert ist
-        }   
+        }
 
         // Für andere Steps (dokumentation etc.)
         const stepData = formData[stepId as keyof FormData]
@@ -347,6 +348,20 @@ export default function AkteForm() {
         }))
     }
 
+    const handleTabClick = async (stepIndex: number) => {
+    const currentStepId = formSteps[currentStep].id
+    
+    // Aktuellen Schritt speichern
+    await saveCurrentStep()
+    
+    // Bei Kundendaten: Validierung aktivieren wenn verlassen wird und nicht valid
+    if (currentStepId === 'kundendaten' && !isStepValid(currentStepId)) {
+        setShowKundendatenValidation(true)
+    }
+    
+    setCurrentStep(stepIndex)
+}
+
     // Formular-Daten aktualisieren (für andere Schritte)
     const updateFormData = (stepId: string, field: string, value: string) => {
         setFormData(prev => ({
@@ -365,7 +380,7 @@ export default function AkteForm() {
         try {
             console.log('Lade Akte-Daten für ID:', savedAkteId)
             const akteData = await aktenApi.getAkte(savedAkteId)
-            
+
             console.log('Geladene Akte-Daten:', akteData)
 
             // Kundendaten aus DB in FormData übertragen
@@ -444,7 +459,7 @@ export default function AkteForm() {
             }
 
             setMessage({ type: 'success', text: 'Akte-Daten erfolgreich geladen!' })
-            
+
         } catch (error) {
             console.error('Fehler beim Laden der Akte:', error)
             setMessage({ type: 'error', text: 'Fehler beim Laden: ' + (error as Error).message })
@@ -456,25 +471,35 @@ export default function AkteForm() {
     // Zum nächsten Schritt wechseln
     const nextStep = async () => {
         const currentStepId = formSteps[currentStep].id
-        
-        // Kundendaten automatisch speichern beim ersten Schritt
-        if (currentStepId === 'kundendaten' && isStepValid(currentStepId)) {
+
+        // Bei Kundendaten: Validierung aktivieren wenn Schritt nicht valid
+        if (currentStepId === 'kundendaten') {
+            if (!isStepValid(currentStepId)) {
+                setShowKundendatenValidation(true) // ← VALIDIERUNG AKTIVIEREN
+                setMessage({
+                    type: 'error',
+                    text: 'Bitte füllen Sie alle Pflichtfelder aus, bevor Sie fortfahren.'
+                })
+                return
+            }
+
+            // Wenn valid, automatisch speichern
             try {
                 if (!savedAkteId) {
-                    // Neue Akte erstellen
                     const result = await aktenApi.createAkte(formData.kundendaten)
                     setSavedAkteId(result.id)
                 } else {
-                    // Bestehende Akte aktualisieren
                     await aktenApi.updateAkte(savedAkteId, formData.kundendaten)
                 }
                 setMessage({ type: 'success', text: 'Kundendaten erfolgreich gespeichert!' })
+                setShowKundendatenValidation(false) // Validierung ausschalten nach Erfolg
             } catch (error) {
                 setMessage({ type: 'error', text: 'Fehler beim Speichern: ' + (error as Error).message })
                 return
             }
         }
 
+        // Für andere Schritte
         if (isStepValid(currentStepId) && currentStep < formSteps.length - 1) {
             setCurrentStep(currentStep + 1)
             setMessage({ type: 'success', text: `${formSteps[currentStep].title} erfolgreich abgeschlossen!` })
@@ -514,17 +539,18 @@ export default function AkteForm() {
                     <KundendatenStep
                         data={formData.kundendaten}
                         onUpdate={updateKundendaten}
+                        showValidation={showKundendatenValidation}
                     />
                 )
 
             case 'abtretung':
                 return (
                     <AbtretungStep
-                    data={formData.abtretung}
-                    kundendaten={formData.kundendaten}
-                    onUpdate={updateAbtretung}
-                    isAkteSaved={!!savedAkteId}
-                    akteId={savedAkteId || undefined}
+                        data={formData.abtretung}
+                        kundendaten={formData.kundendaten}
+                        onUpdate={updateAbtretung}
+                        isAkteSaved={!!savedAkteId}
+                        akteId={savedAkteId || undefined}
                     />
                 )
 
@@ -607,8 +633,7 @@ export default function AkteForm() {
                                             <button
                                                 key={step.id}
                                                 onClick={async () => {
-                                                    await saveCurrentStep()
-                                                    setCurrentStep(index)
+                                                    await handleTabClick(index)
                                                 }}
                                                 disabled={false}
                                                 className={`
@@ -616,8 +641,8 @@ export default function AkteForm() {
                                                     ${isCurrent
                                                         ? 'bg-primary text-primary-foreground shadow-md'
                                                         : isCompleted
-                                                        ? 'bg-green-50 text-green-700 hover:bg-green-100'
-                                                        : 'bg-muted hover:bg-muted/80'
+                                                            ? 'bg-green-50 text-green-700 hover:bg-green-100'
+                                                            : 'bg-muted hover:bg-muted/80'
                                                     }
                                                     `}
                                             >
@@ -672,72 +697,41 @@ export default function AkteForm() {
                                     <CardHeader>
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-primary-foreground">
-                                                {React.createElement(formSteps[currentStep].icon, { className: "h-5 w-5" })}
+                                                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-primary-foreground">
+                                                    {React.createElement(formSteps[currentStep].icon, { className: "h-5 w-5" })}
+                                                </div>
+                                                <div>
+                                                    <CardTitle className="text-xl">{formSteps[currentStep].title}</CardTitle>
+                                                    <CardDescription>{formSteps[currentStep].description}</CardDescription>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <CardTitle className="text-xl">{formSteps[currentStep].title}</CardTitle>
-                                                <CardDescription>{formSteps[currentStep].description}</CardDescription>
-                                            </div>
-                                            </div>
-                                            
+
                                             {/* VIN Widget */}
                                             {currentVIN && (
-                                            <div className="flex items-center gap-2 bg-muted px-3 py-1 rounded-lg">
-                                                <span className="text-sm font-mono">{currentVIN}</span>
-                                                <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                onClick={async () => {
-                                                    await navigator.clipboard.writeText(currentVIN)
-                                                    setVinCopied(true)
-                                                    setTimeout(() => setVinCopied(false), 1500)
-                                                }}
-                                                className="h-6 w-6 p-0"
-                                                >
-                                                {vinCopied ? (
-                                                    <Check className="h-3 w-3 text-green-600" />
-                                                ) : (
-                                                    <Copy className="h-3 w-3" />
-                                                )}
-                                                </Button>
-                                            </div>
+                                                <div className="flex items-center gap-2 bg-muted px-3 py-1 rounded-lg">
+                                                    <span className="text-sm font-mono">{currentVIN}</span>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={async () => {
+                                                            await navigator.clipboard.writeText(currentVIN)
+                                                            setVinCopied(true)
+                                                            setTimeout(() => setVinCopied(false), 1500)
+                                                        }}
+                                                        className="h-6 w-6 p-0"
+                                                    >
+                                                        {vinCopied ? (
+                                                            <Check className="h-3 w-3 text-green-600" />
+                                                        ) : (
+                                                            <Copy className="h-3 w-3" />
+                                                        )}
+                                                    </Button>
+                                                </div>
                                             )}
                                         </div>
-                                        </CardHeader>
+                                    </CardHeader>
                                     <CardContent>
                                         {renderStepContent()}
-
-                                        <div className="flex justify-between mt-8 pt-6 border-t">
-                                            <Button
-                                                variant="outline"
-                                                onClick={prevStep}
-                                                disabled={currentStep === 0}
-                                            >
-                                                Zurück
-                                            </Button>
-
-                                            <div className="flex gap-2">
-                                                {currentStep < formSteps.length - 1 ? (
-                                                    <Button
-                                                        onClick={nextStep}
-                                                        disabled={!isStepValid(formSteps[currentStep].id)}
-                                                    >
-                                                        Weiter
-                                                        <ChevronRight className="ml-2 h-4 w-4" />
-                                                    </Button>
-                                                ) : (
-                                                    <Button
-                                                        onClick={submitForm}
-                                                        disabled={!formSteps.every(step => isStepValid(step.id))}
-                                                        className="bg-green-600 hover:bg-green-700"
-                                                    >
-                                                        <StepCheck className="mr-2 h-4 w-4" />
-                                                        Akte erstellen
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        </div>
                                     </CardContent>
                                 </Card>
                             </div>

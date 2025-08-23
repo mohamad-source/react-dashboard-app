@@ -27,6 +27,7 @@ interface KundendatenData {
   vin: string
   adresse1: string
   adresse2: string
+  scheibe: string
   versicherungsnummer: string
   schadennummer: string
   selbstbeteiligung: string
@@ -114,6 +115,15 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
       console.error('Fehler beim Prüfen des Abtretungsstatus:', error)
     }
   }
+  
+  // Funktion zum Erstellen der vorausgefüllten Schadenbeschreibung
+  const generateSchadenbeschreibung = () => {
+    const kennzeichen = data.kennzeichen || '[Kennzeichen eintragen]'
+    const scheibe = kundendaten.scheibe || 'Frontscheibe / Seitenscheibe / Heckscheibe'
+    const datum = data.schadenzeitpunkt || '[Datum]'
+    
+    return `Am Fahrzeug mit dem amtlichen Kennzeichen ${kennzeichen} entstand ein Glasschaden. Die ${scheibe} weist einen Steinschlag / Riss / Bruch im Bereich [Position der Scheibe, z. B. Fahrerseite unten rechts] auf. Der Schaden beeinträchtigt die Sicht des Fahrers / Stabilität der Scheibe / Verkehrssicherheit und macht eine Reparatur bzw. einen Austausch erforderlich. Der Schaden trat am ${datum} während der Fahrt / durch einen Steinschlag / äußere Einwirkung auf. Weitere Vorschäden an der Scheibe sind nicht vorhanden / wurden nicht festgestellt.`
+  }
 
   // Kundendaten aus übergeordnetem Formular übernehmen
   useEffect(() => {
@@ -136,12 +146,12 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
       if (kundendaten.schadentag && !data.schadenzeitpunkt) {
         onUpdate('schadenzeitpunkt', kundendaten.schadentag)
       }
-      if (kundendaten.schadenort && !data.schadenbeschreibung) {
-        onUpdate('schadenbeschreibung', kundendaten.schadenort)
-      }
       if (kundendaten.vorsteuer_berechtigt && !data.vorsteuer) {
         onUpdate('vorsteuer', kundendaten.vorsteuer_berechtigt.toLowerCase())
       }
+      if (!data.schadenbeschreibung) {
+  onUpdate('schadenbeschreibung', generateSchadenbeschreibung())
+}
       if (kundendaten.marke && !data.marke) {
         onUpdate('marke', kundendaten.marke)
       }
@@ -539,17 +549,13 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
             <div className="mt-4">
               <Label htmlFor="schadenbeschreibung">Schadenbeschreibung:</Label>
               <textarea
-                id="schadenbeschreibung"
-                value={data.schadenbeschreibung}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => onUpdate('schadenbeschreibung', e.target.value)}
-                placeholder="Am Fahrzeug mit dem amtlichen Kennzeichen [Kennzeichen eintragen] entstand ein Glasschaden.
-Die Frontscheibe / Seitenscheibe / Heckscheibe weist einen Steinschlag / Riss / Bruch im Bereich [Position der Scheibe, z. B. Fahrerseite unten rechts] auf.
-Der Schaden beeinträchtigt die Sicht des Fahrers / Stabilität der Scheibe / Verkehrssicherheit und macht eine Reparatur bzw. einen Austausch erforderlich.
-Der Schaden trat am [Datum] während der Fahrt / durch einen Steinschlag / äußere Einwirkung auf.
-Weitere Vorschäden an der Scheibe sind nicht vorhanden / wurden nicht festgestellt."
-                rows={10}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+  id="schadenbeschreibung"
+  value={data.schadenbeschreibung}
+  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => onUpdate('schadenbeschreibung', e.target.value)}
+  placeholder="Schadenbeschreibung eingeben..."
+  rows={10}
+  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+/>
             </div>
           </div>
 

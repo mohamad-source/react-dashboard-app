@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button' 
+import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
     FileText,
@@ -76,9 +76,9 @@ export default function DokumentationStep({
     } | null>(null)
 
     // Kalkulation Info anzeigen
-    const selectedKalkulation = Array.isArray(verfugbareKalkulationen) 
-    ? verfugbareKalkulationen.find(k => k.id.toString() === selectedKalkulationId)
-    : undefined
+    const selectedKalkulation = Array.isArray(verfugbareKalkulationen)
+        ? verfugbareKalkulationen.find(k => k.id.toString() === selectedKalkulationId)
+        : undefined
 
     // Section Checkbox Handler
     const handleSectionChange = (section: string, checked: boolean) => {
@@ -103,7 +103,7 @@ export default function DokumentationStep({
     const handleSelectAll = (checked: boolean) => {
         setSelectAll(checked)
         const availableSections = ['kundendaten', 'bilder']
-        
+
         if (isAbtretungSigned) availableSections.push('abtretung')
         if (verfugbareKalkulationen.length > 0) availableSections.push('kalkulation')
 
@@ -137,7 +137,7 @@ export default function DokumentationStep({
         try {
             const formData = new FormData()
             formData.append('akte_id', akteId.toString())
-            
+
             selectedSections.forEach(section => {
                 formData.append('pdf_sections[]', section)
             })
@@ -399,73 +399,51 @@ export default function DokumentationStep({
                             </label>
                         </div>
 
-                        <Button 
-                            onClick={generatePDF}
-                            disabled={isGeneratingPDF || selectedSections.length === 0}
-                            className="bg-red-600 hover:bg-red-700"
-                        >
-                            {isGeneratingPDF ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                                <Download className="mr-2 h-4 w-4" />
-                            )}
-                            {isGeneratingPDF ? 'Generiere PDF...' : 'PDF generieren'}
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
+                        <div className="flex gap-3">
+                            <Button
+                                onClick={generatePDF}
+                                disabled={isGeneratingPDF || selectedSections.length === 0}
+                                className="bg-red-600 hover:bg-red-700"
+                            >
+                                {isGeneratingPDF ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Download className="mr-2 h-4 w-4" />
+                                )}
+                                {isGeneratingPDF ? 'Generiere PDF...' : 'PDF generieren'}
+                            </Button>
 
-            {/* Akte Status */}
-            <Card>
-                <CardHeader className="bg-green-600 text-white">
-                    <CardTitle className="flex items-center gap-2">
-                        <CheckCircle className="h-5 w-5" />
-                        Akte abschließen
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="p-6">
-                    {isAkteCompleted ? (
-                        <div className="space-y-4">
-                            <Alert>
-                                <CheckCircle className="h-4 w-4" />
-                                <AlertDescription>
-                                    <strong>Akte abgeschlossen</strong> am {akte?.bearbeitet_am ? new Date(akte.bearbeitet_am).toLocaleString('de-DE') : ''}
-                                </AlertDescription>
-                            </Alert>
-                            <Button 
-                                variant="outline" 
-                                onClick={reopenAkte}
-                                disabled={isUpdatingStatus}
-                                className="text-orange-600 border-orange-600 hover:bg-orange-50"
-                            >
-                                {isUpdatingStatus ? (
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                ) : (
-                                    <Undo className="mr-2 h-4 w-4" />
-                                )}
-                                Akte wieder öffnen
-                            </Button>
+                            {/* Akte abschließen Button */}
+                            {isAkteCompleted ? (
+                                <Button
+                                    variant="outline"
+                                    onClick={reopenAkte}
+                                    disabled={isUpdatingStatus}
+                                    className="text-orange-600 border-orange-600 hover:bg-orange-50"
+                                >
+                                    {isUpdatingStatus ? (
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <Undo className="mr-2 h-4 w-4" />
+                                    )}
+                                    Akte wieder öffnen
+                                </Button>
+                            ) : (
+                                <Button
+                                    onClick={closeAkte}
+                                    disabled={isUpdatingStatus}
+                                    className="bg-green-600 hover:bg-green-700"
+                                >
+                                    {isUpdatingStatus ? (
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <Check className="mr-2 h-4 w-4" />
+                                    )}
+                                    Akte abschließen
+                                </Button>
+                            )}
                         </div>
-                    ) : (
-                        <div className="space-y-4">
-                            <p className="text-sm text-muted-foreground">
-                                Wenn alle Arbeiten abgeschlossen sind, können Sie die Akte als
-                                <strong> "Abgeschlossen"</strong> markieren.
-                            </p>
-                            <Button 
-                                onClick={closeAkte}
-                                disabled={isUpdatingStatus}
-                                className="bg-green-600 hover:bg-green-700"
-                            >
-                                {isUpdatingStatus ? (
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                ) : (
-                                    <Check className="mr-2 h-4 w-4" />
-                                )}
-                                Akte abschließen
-                            </Button>
-                        </div>
-                    )}
+                    </div>
                 </CardContent>
             </Card>
 
@@ -483,9 +461,9 @@ export default function DokumentationStep({
                     <div className="bg-white rounded-lg max-w-md w-full mx-4">
                         <div className="flex items-center justify-between p-4 border-b">
                             <h3 className="text-lg font-semibold">{showModal.title}</h3>
-                            <Button 
-                                variant="ghost" 
-                                size="sm" 
+                            <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => setShowModal(null)}
                             >
                                 <X className="h-4 w-4" />
@@ -495,14 +473,14 @@ export default function DokumentationStep({
                             <p className="text-gray-700 whitespace-pre-line">{showModal.message}</p>
                         </div>
                         <div className="flex justify-end gap-2 p-4 border-t">
-                            <Button 
-                                variant="outline" 
+                            <Button
+                                variant="outline"
                                 onClick={() => setShowModal(null)}
                             >
                                 {showModal.type === 'confirm' ? 'Abbrechen' : 'OK'}
                             </Button>
                             {showModal.type === 'confirm' && (
-                                <Button 
+                                <Button
                                     onClick={() => {
                                         showModal.onConfirm?.()
                                         setShowModal(null)
@@ -513,7 +491,7 @@ export default function DokumentationStep({
                                 </Button>
                             )}
                             {showModal.type === 'success' && showModal.onConfirm && (
-                                <Button 
+                                <Button
                                     onClick={() => {
                                         showModal.onConfirm?.()
                                         setShowModal(null)

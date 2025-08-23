@@ -7,13 +7,14 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { supabase } from '../../../lib/supabase'
 import { aktenApi } from '../../../lib/aktenApi'
-import { 
-  Upload, 
-  FileText, 
-  CheckCircle, 
-  AlertCircle, 
+import {
+  Upload,
+  FileText,
+  CheckCircle,
+  AlertCircle,
   Loader2,
-  TestTube
+  TestTube,
+  AlertTriangle
 } from 'lucide-react'
 
 interface KundendatenData {
@@ -38,9 +39,10 @@ interface KundendatenData {
 interface KundendatenStepProps {
   data: KundendatenData
   onUpdate: (field: keyof KundendatenData, value: string) => void
+  showValidation?: boolean // Neu: Prop für Validierung
 }
 
-export default function KundendatenStep({ data, onUpdate }: KundendatenStepProps) {
+export default function KundendatenStep({ data, onUpdate, showValidation = false }: KundendatenStepProps) {
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle')
   const [uploadMessage, setUploadMessage] = useState('')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -52,54 +54,88 @@ export default function KundendatenStep({ data, onUpdate }: KundendatenStepProps
   const API_URL = 'https://api.fahrzeugschein-scanner.de/'
   const API_KEY = '9c97565c-84ed-47ee-b597-981e0c4905c9'
 
-  // Felder mit Test-Daten ausfüllen
-  const fillTestData = () => {
-    onUpdate('kunde', 'Max Mustermann')
-    onUpdate('fahrzeugtyp', 'PKW')
-    onUpdate('adresse1', 'Musterstraße 123')
-    onUpdate('adresse2', '12345 Berlin')
-    onUpdate('schadentag', '2025-01-15')
-    onUpdate('schadenort', 'Hauptstraße 45, Berlin')
-    onUpdate('schadennummer', 'SN-2025-001')
-    onUpdate('kennzeichen', 'B-AB 1234')
-    onUpdate('versicherungsnummer', '123456789')
-    onUpdate('selbstbeteiligung', '300')
-    onUpdate('vin', 'WBAVA31030NL12345')
-    onUpdate('scheibe', 'Frontscheibe')
-    onUpdate('auftragstyp', 'Kostenvoranschlag')
-    onUpdate('vorsteuer_berechtigt', 'Nein')
+  // PFLICHTFELDER DEFINITION
+  const requiredFields: (keyof KundendatenData)[] = [
+    'kunde',
+    'fahrzeugtyp',
+    'adresse1',
+    'adresse2',
+    'schadentag',
+    'schadenort',
+    'kennzeichen',
+    'versicherungsnummer',
+    'scheibe',
+    'auftragstyp'
+  ]
+
+  // VALIDIERUNG: Prüfen ob Feld leer ist
+  const isFieldEmpty = (field: keyof KundendatenData): boolean => {
+    const value = data[field]
+    return !value || value.trim() === ''
   }
 
-  // Test-Daten direkt in DB speichern
-  const handleTestSave = async () => {
-    setUploadStatus('uploading')
-    setUploadMessage('Test-Akte wird erstellt...')
+  // VALIDIERUNG: Prüfen ob Feld Pflichtfeld ist UND leer
+  const isRequiredFieldEmpty = (field: keyof KundendatenData): boolean => {
+    return requiredFields.includes(field) && isFieldEmpty(field)
+  }
 
-    try {
-      const testData = {
-        kunde: 'Max Mustermann',
-        kennzeichen: 'B-AB 1234',
-        schadenort: 'Hauptstraße 123, Berlin'
+  // CSS-KLASSEN für Feld-Styling
+  const getFieldClassName = (field: keyof KundendatenData): string => {
+    const baseClass = "w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 transition-all"
+    const isRequired = requiredFields.includes(field)
+    const isEmpty = isFieldEmpty(field)
+
+    if (!showValidation) {
+      // Pflichtfelder subtil markieren
+      if (isRequired && isEmpty) {
+        return `${baseClass} border-blue-400 bg-blue-50/30 focus:ring-blue-500 focus:border-blue-500`
+      } else if (!isEmpty) {
+        return `${baseClass} border-green-400 bg-green-50 focus:ring-green-500 focus:border-green-500`
+      } else {
+        return `${baseClass} border-gray-300 focus:ring-blue-500`
       }
+    }
 
-      await aktenApi.createAkte(testData)
-
-      setUploadStatus('success')
-      setUploadMessage('Test-Akte erfolgreich erstellt!')
-      
-      // Auto-fill Formular mit Test-Daten
-      fillTestData()
-
-    } catch (error) {
-      setUploadStatus('error')
-      setUploadMessage('Fehler beim Erstellen der Test-Akte: ' + (error as Error).message)
+    // Mit Validierung
+    if (isRequiredFieldEmpty(field)) {
+      return `${baseClass} border-red-400 bg-red-50 focus:ring-red-500 focus:border-red-500`
+    } else if (!isFieldEmpty(field)) {
+      return `${baseClass} border-green-400 bg-green-50 focus:ring-green-500 focus:border-green-500`
+    } else {
+      return `${baseClass} border-gray-300 focus:ring-blue-500`
     }
   }
 
-  // File Upload Handler
-  const handleFileSelect = useCallback((file: File) => {
+  // LABEL mit Pflichtfeld-Kennzeichnung
+  const renderLabel = (htmlFor: string, text: string, field: keyof KundendatenData) => {
+    const isRequired = requiredFields.includes(field)
+    const isEmpty = isRequiredFieldEmpty(field)
+
+    return (
+      <Label
+        htmlFor={htmlFor}
+        className={`flex items-center gap-2 min-h-[20px] ${showValidation && isEmpty ? 'text-red-600' : isRequired ? 'text-blue-700 font-medium' : ''}`}
+      >
+        {text}
+        {isRequired && (
+          <span className={`text-red-500 font-bold ${!showValidation ? 'animate-pulse' : ''}`}>*</span>
+        )}
+        {showValidation && isEmpty && (
+          <AlertTriangle className="h-4 w-4 text-red-500" />
+        )}
+      </Label>
+    )
+  }
+
+  // ÜBERSICHT: Fehlende Pflichtfelder
+  const getMissingRequiredFields = () => {
+    return requiredFields.filter(field => isFieldEmpty(field))
+  }
+
+  // File Upload Handler - MODIFIZIERT für automatischen Scan
+  const handleFileSelect = useCallback(async (file: File) => {
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf']
-    
+
     if (!validTypes.includes(file.type)) {
       setUploadStatus('error')
       setUploadMessage('Ungültiger Dateityp. Bitte wählen Sie eine JPG, JPEG, PNG oder PDF Datei.')
@@ -115,39 +151,19 @@ export default function KundendatenStep({ data, onUpdate }: KundendatenStepProps
     setSelectedFile(file)
     setUploadStatus('idle')
     setUploadMessage('')
+
+    // Automatisch scannen nach File-Auswahl
+    await scanFahrzeugscheinAuto(file)
   }, [])
 
-  // Drag & Drop Handlers
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragging(true)
-  }, [])
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragging(false)
-  }, [])
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragging(false)
-    
-    const files = e.dataTransfer.files
-    if (files.length > 0) {
-      handleFileSelect(files[0])
-    }
-  }, [handleFileSelect])
-
-  // Fahrzeugschein Scanner
-  const scanFahrzeugschein = async () => {
-    if (!selectedFile) return
-
+  // Neue Funktion für automatischen Scan
+  const scanFahrzeugscheinAuto = async (file: File) => {
     setUploadStatus('uploading')
-    setUploadMessage('Daten werden eingelesen...')
+    setUploadMessage('Fahrzeugschein wird automatisch gescannt...')
 
     try {
       const formData = new FormData()
-      formData.append('file', selectedFile)
+      formData.append('file', file)
       formData.append('access_key', API_KEY)
       formData.append('show_cuts', 'false')
       formData.append('get_kba_data', 'false')
@@ -179,31 +195,75 @@ export default function KundendatenStep({ data, onUpdate }: KundendatenStepProps
         }
         if (result.d1) {
           onUpdate('marke', result.d1)
-        }else if(result.maker){
+        } else if (result.maker) {
           onUpdate('marke', result.maker)
         }
         if (result.model) {
           onUpdate('model', result.model)
         }
 
-        console.log(result);
+        console.log(result)
 
         setUploadStatus('success')
-        setUploadMessage('Fahrzeugschein erfolgreich gescannt und Felder ausgefüllt!')
+        setUploadMessage('Fahrzeugschein automatisch gescannt! Felder wurden ausgefüllt.')
       } else {
         setUploadStatus('error')
-        setUploadMessage(result.message || 'Fehler beim Scannen des Fahrzeugscheins')
+        setUploadMessage(result.message || 'Fehler beim automatischen Scannen')
       }
     } catch (error) {
       setUploadStatus('error')
-      setUploadMessage('Verbindungsfehler beim Scannen')
+      setUploadMessage('Verbindungsfehler beim automatischen Scannen')
     }
+  }
+
+  // Drag & Drop Handlers
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragging(false)
+
+    const files = e.dataTransfer.files
+    if (files.length > 0) {
+      handleFileSelect(files[0])
+    }
+  }, [handleFileSelect])
+
+  // Manueller Scan (Fallback Button)
+  const scanFahrzeugschein = async () => {
+    if (!selectedFile) return
+    await scanFahrzeugscheinAuto(selectedFile)
+  }
+
+  // Test-Daten ausfüllen
+  const fillTestData = () => {
+    onUpdate('kunde', 'Max Mustermann')
+    onUpdate('fahrzeugtyp', 'PKW')
+    onUpdate('adresse1', 'Musterstraße 123')
+    onUpdate('adresse2', '12345 Berlin')
+    onUpdate('schadentag', '2025-01-15')
+    onUpdate('schadenort', 'Hauptstraße 45, Berlin')
+    onUpdate('schadennummer', 'SN-2025-001')
+    onUpdate('kennzeichen', 'B-AB 1234')
+    onUpdate('versicherungsnummer', '123456789')
+    onUpdate('selbstbeteiligung', '300')
+    onUpdate('vin', 'WBAVA31030NL12345')
+    onUpdate('scheibe', 'Frontscheibe')
+    onUpdate('auftragstyp', 'Reparaturauftrag')
+    onUpdate('vorsteuer_berechtigt', 'Nein')
   }
 
   // VIN Validation
   const validateVIN = (vin: string) => {
     if (vin.length === 17) {
-      // Einfache VIN Validierung (kann erweitert werden)
       const validPattern = /^[A-HJ-NPR-Z0-9]{17}$/
       setVinValidation(validPattern.test(vin) ? 'valid' : 'invalid')
     } else {
@@ -221,6 +281,32 @@ export default function KundendatenStep({ data, onUpdate }: KundendatenStepProps
 
   return (
     <div className="space-y-6">
+      {/* VALIDIERUNGS-ÜBERSICHT */}
+      {showValidation && getMissingRequiredFields().length > 0 && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Bitte füllen Sie noch folgende Pflichtfelder aus:</strong>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {getMissingRequiredFields().map(field => (
+                <Badge key={field} variant="destructive" className="text-xs">
+                  {field === 'kunde' ? 'Kunde' :
+                    field === 'fahrzeugtyp' ? 'Fahrzeugtyp' :
+                      field === 'adresse1' ? 'Adresse 1' :
+                        field === 'adresse2' ? 'PLZ/Ort' :
+                          field === 'schadentag' ? 'Schadentag' :
+                            field === 'schadenort' ? 'Schadenort' :
+                              field === 'kennzeichen' ? 'Kennzeichen' :
+                                field === 'versicherungsnummer' ? 'Versicherung' :
+                                  field === 'scheibe' ? 'Scheibe' :
+                                    field === 'auftragstyp' ? 'Auftragstyp' : field}
+                </Badge>
+              ))}
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Fahrzeugschein Scanner */}
       <Card className="border-2 border-dashed border-blue-300">
         <CardHeader className="bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-t-lg">
@@ -234,8 +320,8 @@ export default function KundendatenStep({ data, onUpdate }: KundendatenStepProps
           <div
             className={`
               border-3 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all
-              ${isDragging 
-                ? 'border-purple-500 bg-purple-50 scale-105' 
+              ${isDragging
+                ? 'border-purple-500 bg-purple-50 scale-105'
                 : 'border-blue-300 hover:border-purple-500 hover:bg-blue-50'
               }
             `}
@@ -249,7 +335,7 @@ export default function KundendatenStep({ data, onUpdate }: KundendatenStepProps
               Fahrzeugschein hier ablegen oder klicken zum Auswählen
             </div>
             <div className="text-gray-500 text-sm">
-              Unterstützte Formate: JPG, JPEG, PNG, PDF
+              Unterstützte Formate: JPG, JPEG, PNG, PDF • Automatischer Scan nach Upload
             </div>
             <input
               ref={fileInputRef}
@@ -268,51 +354,34 @@ export default function KundendatenStep({ data, onUpdate }: KundendatenStepProps
             </div>
           )}
 
-          {/* Auto-Fill Button */}
-          <Button
-            onClick={fillTestData}
-            variant="outline"
-            className="mt-4 mr-4"
-          >
-            <TestTube className="mr-2 h-4 w-4" />
-            Felder ausfüllen
-          </Button>
+          {/* Buttons */}
+          <div className="flex gap-4 mt-4">
+            <Button
+              onClick={fillTestData}
+              variant="outline"
+            >
+              <TestTube className="mr-2 h-4 w-4" />
+              Test-Daten
+            </Button>
 
-          {/* Test Button */}
-          <Button
-            onClick={handleTestSave}
-            variant="secondary"
-            className="mt-4 mr-4"
-            disabled={uploadStatus === 'uploading'}
-          >
-            {uploadStatus === 'uploading' ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Test läuft...
-              </>
-            ) : (
-              <>
-                <TestTube className="mr-2 h-4 w-4" />
-                Test-Akte erstellen
-              </>
+            {/* Fallback Scan Button - nur wenn Datei vorhanden */}
+            {selectedFile && (
+              <Button
+                onClick={scanFahrzeugschein}
+                disabled={uploadStatus === 'uploading'}
+                variant="secondary"
+              >
+                {uploadStatus === 'uploading' ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Scannt...
+                  </>
+                ) : (
+                  'Erneut scannen'
+                )}
+              </Button>
             )}
-          </Button>
-
-          {/* Scan Button */}
-          <Button
-            onClick={scanFahrzeugschein}
-            disabled={!selectedFile || uploadStatus === 'uploading'}
-            className="mt-4"
-          >
-            {uploadStatus === 'uploading' ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Wird gescannt...
-              </>
-            ) : (
-              'Fahrzeugschein scannen'
-            )}
-          </Button>
+          </div>
 
           {/* Status Messages */}
           {uploadMessage && (
@@ -325,8 +394,8 @@ export default function KundendatenStep({ data, onUpdate }: KundendatenStepProps
                 <Loader2 className="h-4 w-4 animate-spin" />
               )}
               <AlertDescription className={
-                uploadStatus === 'success' ? 'text-green-700' : 
-                uploadStatus === 'error' ? 'text-red-700' : ''
+                uploadStatus === 'success' ? 'text-green-700' :
+                  uploadStatus === 'error' ? 'text-red-700' : ''
               }>
                 {uploadMessage}
               </AlertDescription>
@@ -335,26 +404,26 @@ export default function KundendatenStep({ data, onUpdate }: KundendatenStepProps
         </CardContent>
       </Card>
 
-      {/* Kundendaten Formular */}
+      {/* FORMULAR mit Validierung */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="kunde">Kunde *</Label>
+          {renderLabel('kunde', 'Kunde', 'kunde')}
           <Input
             id="kunde"
             value={data.kunde}
             onChange={(e) => onUpdate('kunde', e.target.value)}
             placeholder="z.B. Max Mustermann"
-            className={data.kunde ? 'bg-green-50' : ''}
+            className={getFieldClassName('kunde')}
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="fahrzeugtyp">Fahrzeugtyp *</Label>
+          {renderLabel('fahrzeugtyp', 'Fahrzeugtyp', 'fahrzeugtyp')}
           <select
             id="fahrzeugtyp"
             value={data.fahrzeugtyp}
             onChange={(e) => onUpdate('fahrzeugtyp', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={getFieldClassName('fahrzeugtyp')}
           >
             <option value="">-- Bitte wählen --</option>
             <option value="PKW">PKW</option>
@@ -366,89 +435,93 @@ export default function KundendatenStep({ data, onUpdate }: KundendatenStepProps
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="adresse1">Adresse 1 *</Label>
+          {renderLabel('adresse1', 'Adresse 1', 'adresse1')}
           <Input
             id="adresse1"
             value={data.adresse1}
             onChange={(e) => onUpdate('adresse1', e.target.value)}
             placeholder="Straße und Hausnummer"
-            className={data.adresse1 ? 'bg-green-50' : ''}
+            className={getFieldClassName('adresse1')}
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="adresse2">Adresse 2 (PLZ/Ort) *</Label>
+          {renderLabel('adresse2', 'Adresse 2 (PLZ/Ort)', 'adresse2')}
           <Input
             id="adresse2"
             value={data.adresse2}
             onChange={(e) => onUpdate('adresse2', e.target.value)}
             placeholder="PLZ Ort"
-            className={data.adresse2 ? 'bg-green-50' : ''}
+            className={getFieldClassName('adresse2')}
           />
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="schadentag">Schadentag *</Label>
+          {renderLabel('schadentag', 'Schadentag', 'schadentag')}
           <Input
             id="schadentag"
             type="date"
             value={data.schadentag}
             onChange={(e) => onUpdate('schadentag', e.target.value)}
+            className={getFieldClassName('schadentag')}
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="schadenort">Schadenort *</Label>
+          {renderLabel('schadenort', 'Schadenort', 'schadenort')}
           <Input
             id="schadenort"
             value={data.schadenort}
             onChange={(e) => onUpdate('schadenort', e.target.value)}
             placeholder="Unfallort"
+            className={getFieldClassName('schadenort')}
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="schadennummer">Schadennummer</Label>
+          {renderLabel('schadennummer', 'Schadennummer', 'schadennummer')}
           <Input
             id="schadennummer"
             value={data.schadennummer}
             onChange={(e) => onUpdate('schadennummer', e.target.value)}
             placeholder="z.B. SN-2024-001"
+            className={getFieldClassName('schadennummer')}
           />
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="kennzeichen">Amtl. Kennzeichen *</Label>
+          {renderLabel('kennzeichen', 'Amtl. Kennzeichen', 'kennzeichen')}
           <Input
             id="kennzeichen"
             value={data.kennzeichen}
             onChange={(e) => onUpdate('kennzeichen', e.target.value.toUpperCase())}
             placeholder="K-AB 1234"
-            className={`font-mono ${data.kennzeichen ? 'bg-green-50' : ''}`}
+            className={`font-mono ${getFieldClassName('kennzeichen')}`}
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="versicherungsnummer">Vers.-Nummer *</Label>
+          {renderLabel('versicherungsnummer', 'Vers.-Nummer', 'versicherungsnummer')}
           <Input
             id="versicherungsnummer"
             value={data.versicherungsnummer}
             onChange={(e) => onUpdate('versicherungsnummer', e.target.value)}
             placeholder="123456789"
+            className={getFieldClassName('versicherungsnummer')}
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="selbstbeteiligung">Selbstbeteiligung</Label>
+          {renderLabel('selbstbeteiligung', 'Selbstbeteiligung', 'selbstbeteiligung')}
           <select
             id="selbstbeteiligung"
             value={data.selbstbeteiligung}
             onChange={(e) => onUpdate('selbstbeteiligung', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={getFieldClassName('selbstbeteiligung')}
           >
             <option value="">-- Bitte wählen --</option>
             <option value="150">150 €</option>
@@ -459,24 +532,28 @@ export default function KundendatenStep({ data, onUpdate }: KundendatenStepProps
         </div>
       </div>
 
-      <div>
-        <Label htmlFor="marke">Marke:</Label>
-        <Input
-          id="marke"
-          value={data.marke}
-          onChange={(e) => onUpdate('marke', e.target.value)}
-          placeholder="Fahrzeugmarke"
-        />
-      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="marke">Marke</Label>
+          <Input
+            id="marke"
+            value={data.marke}
+            onChange={(e) => onUpdate('marke', e.target.value)}
+            placeholder="Fahrzeugmarke"
+            className={getFieldClassName('marke')}
+          />
+        </div>
 
-      <div>
-        <Label htmlFor="model">Model:</Label>
-        <Input
-          id="model"
-          value={data.model}
-          onChange={(e) => onUpdate('model', e.target.value)}
-          placeholder="Model"
-        />
+        <div className="space-y-2">
+          <Label htmlFor="model">Model</Label>
+          <Input
+            id="model"
+            value={data.model}
+            onChange={(e) => onUpdate('model', e.target.value)}
+            placeholder="Model"
+            className={getFieldClassName('model')}
+          />
+        </div>
       </div>
 
       {/* VIN Eingabe */}
@@ -500,7 +577,7 @@ export default function KundendatenStep({ data, onUpdate }: KundendatenStepProps
           }}
           maxLength={17}
           placeholder="z.B. WBAVA31030NL12345"
-          className={`font-mono ${data.vin ? 'bg-green-50' : ''}`}
+          className={`font-mono ${getFieldClassName('vin')}`}
         />
         <div className="text-sm text-gray-500">
           Optional: 17-stellige VIN (Vehicle Identification Number)
@@ -509,12 +586,12 @@ export default function KundendatenStep({ data, onUpdate }: KundendatenStepProps
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="scheibe">Welche Scheibe? *</Label>
+          {renderLabel('scheibe', 'Welche Scheibe?', 'scheibe')}
           <select
             id="scheibe"
             value={data.scheibe}
             onChange={(e) => onUpdate('scheibe', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={getFieldClassName('scheibe')}
           >
             <option value="">-- Bitte wählen --</option>
             <option value="Frontscheibe">Frontscheibe</option>
@@ -528,12 +605,12 @@ export default function KundendatenStep({ data, onUpdate }: KundendatenStepProps
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="auftragstyp">Auftragstyp *</Label>
+          {renderLabel('auftragstyp', 'Auftragstyp', 'auftragstyp')}
           <select
             id="auftragstyp"
             value={data.auftragstyp}
             onChange={(e) => onUpdate('auftragstyp', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={getFieldClassName('auftragstyp')}
           >
             <option value="">-- Bitte wählen --</option>
             <option value="Kostenvoranschlag">Kostenvoranschlag</option>
@@ -542,12 +619,12 @@ export default function KundendatenStep({ data, onUpdate }: KundendatenStepProps
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="vorsteuer_berechtigt">Vorsteuerabzugsberechtigt</Label>
+          {renderLabel('vorsteuer_berechtigt', 'Vorsteuerabzugsberechtigt', 'vorsteuer_berechtigt')}
           <select
             id="vorsteuer_berechtigt"
             value={data.vorsteuer_berechtigt}
             onChange={(e) => onUpdate('vorsteuer_berechtigt', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={getFieldClassName('vorsteuer_berechtigt')}
           >
             <option value="">-- Bitte wählen --</option>
             <option value="Nein">Nein</option>
