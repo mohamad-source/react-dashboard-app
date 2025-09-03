@@ -75,6 +75,12 @@ interface AbtretungStepProps {
   onUpdate: (field: keyof AbtretungData, value: any) => void
   isAkteSaved: boolean
   akteId?: number
+  versicherungsdaten?: {
+    versicherungsname: string
+    marke: string
+    modell: string
+    telefon: string
+  }
 }
 
 interface ZOnlineRequest {
@@ -96,7 +102,7 @@ interface ZOnlineResponse {
     errorMessage?: string;
 }
 
-export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved, akteId }: AbtretungStepProps) {
+export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved, akteId, versicherungsdaten }: AbtretungStepProps) {
   const { id: urlId } = useParams()
   const actualAkteId = akteId || (urlId ? parseInt(urlId) : null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -281,8 +287,11 @@ Besteht jedoch in der Kaskoversicherung des Kunden eine Selbstbeteiligung, verpf
         const vollAdresse = `${kundendaten.adresse1}, ${kundendaten.adresse2}`
         onUpdate('adresse', vollAdresse)
       }
+      if (versicherungsdaten?.versicherungsname && !data.versicherungsname) {
+        onUpdate('versicherungsname', versicherungsdaten.versicherungsname)
+      }
     }
-  }, [kundendaten, data, onUpdate, isAbtretungSigned, editMode])
+  }, [kundendaten, versicherungsdaten, data, onUpdate, isAbtretungSigned, editMode])
 
   // Canvas Setup
   useEffect(() => {

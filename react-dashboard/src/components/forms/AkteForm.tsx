@@ -177,6 +177,14 @@ const extendedAktenApi = {
     }
 }
 
+const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
+const [versicherungsdaten, setVersicherungsdaten] = useState({
+    versicherungsname: '',
+    marke: '',
+    modell: '',
+    telefon: ''
+})
+
 export default function AkteForm() {
     const { user } = useUser()
     const { id } = useParams()
@@ -253,6 +261,7 @@ export default function AkteForm() {
             notizen: ''
         }
     })
+        
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
 
     useEffect(() => {
@@ -346,6 +355,17 @@ export default function AkteForm() {
                 [field]: value
             }
         }))
+    }
+
+    // Handler für Z@Online Versicherungsdaten
+    const handleVersicherungsdatenUpdate = (newVersicherungsdaten: {
+        versicherungsname: string
+        marke: string
+        modell: string
+        telefon: string
+    }) => {
+        console.log('Parent erhält Z@Online Daten:', newVersicherungsdaten)
+        setVersicherungsdaten(newVersicherungsdaten)
     }
 
     const handleTabClick = async (stepIndex: number) => {
@@ -540,6 +560,7 @@ export default function AkteForm() {
                         data={formData.kundendaten}
                         onUpdate={updateKundendaten}
                         showValidation={showKundendatenValidation}
+                        onVersicherungsdatenUpdate={handleVersicherungsdatenUpdate}
                     />
                 )
 
@@ -551,6 +572,7 @@ export default function AkteForm() {
                         onUpdate={updateAbtretung}
                         isAkteSaved={!!savedAkteId}
                         akteId={savedAkteId || undefined}
+                        versicherungsdaten={versicherungsdaten}
                     />
                 )
 
