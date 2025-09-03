@@ -235,21 +235,21 @@ export default function KundendatenStep({ data, onUpdate, showValidation = false
           if (zonlineResult && zonlineResult.responseCode === '0') {
             setZonlineData(zonlineResult)
             console.log('Z@Online Daten erhalten:', zonlineResult)
+            
+            // Z@Online Daten an Parent weiterleiten
+            if (onVersicherungsdatenUpdate) {
+              onVersicherungsdatenUpdate({
+                versicherungsname: zonlineResult.insuranceCompanyName || '',
+                marke: zonlineResult.manufacturerName || '',
+                modell: zonlineResult.typeName || '',
+                telefon: zonlineResult.insurancePOTelephoneNo || ''
+              })
+            }
           }
         }
 
         setUploadStatus('success')
         setUploadMessage('Fahrzeugschein automatisch gescannt! Felder wurden ausgefüllt.')
-
-        if (zonlineData && zonlineData.responseCode === '0' && onVersicherungsdatenUpdate) {
-          onVersicherungsdatenUpdate({
-            versicherungsname: zonlineData.insuranceCompanyName || '',
-            marke: zonlineData.manufacturerName || '',
-            modell: zonlineData.typeName || '',
-            telefon: zonlineData.insurancePOTelephoneNo || ''
-          })
-        }
-        
         setShowZonlineModal(true)
       } else {
         setUploadStatus('error')
