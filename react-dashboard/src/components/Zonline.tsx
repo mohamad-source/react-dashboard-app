@@ -22,8 +22,8 @@ interface ZOnlineResponse {
 
 const ZOnlineApi: React.FC = () => {
     const [formData, setFormData] = useState<ZOnlineRequest>({
-        requestor: '',
-        password: '',
+        requestor: import.meta.env.VITE_ZONLINE_REQUESTOR || 'ZA0315P03012714',
+        password: import.meta.env.VITE_ZONLINE_PASSWORD || 'F08H93A063C',
         requestType: '1',
         dateOfLoss: new Date().toISOString().split('T')[0],
         licenceNumber: '',
@@ -53,6 +53,7 @@ const ZOnlineApi: React.FC = () => {
 
         try {
             const xmlRequest = generateXML(formData);
+            console.log('Generated XML:', xmlRequest);
 
             const response = await fetch(`${import.meta.env.VITE_API_URL}/zonline`, {
                 method: 'POST',
@@ -64,6 +65,8 @@ const ZOnlineApi: React.FC = () => {
             }
 
             const responseText = await response.text();
+            console.log('Response XML:', responseText);
+            
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(responseText, 'text/xml');
 
@@ -93,7 +96,7 @@ const ZOnlineApi: React.FC = () => {
                 <input
                     type="text"
                     placeholder="Benutzername"
-                    value="ZA0315P03012714"
+                    value={formData.requestor}
                     onChange={(e) => setFormData({ ...formData, requestor: e.target.value })}
                     className="w-full p-2 border rounded"
                 />
@@ -101,7 +104,7 @@ const ZOnlineApi: React.FC = () => {
                 <input
                     type="password"
                     placeholder="Passwort"
-                    value="F08H93A063C"
+                    value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     className="w-full p-2 border rounded"
                 />
@@ -126,7 +129,7 @@ const ZOnlineApi: React.FC = () => {
                 <input
                     type="text"
                     placeholder="Kennzeichen (z.B. M AB 1234)"
-                    value="H MX 2940"
+                    value={formData.licenceNumber}
                     onChange={(e) => setFormData({ ...formData, licenceNumber: e.target.value })}
                     className="w-full p-2 border rounded"
                 />
