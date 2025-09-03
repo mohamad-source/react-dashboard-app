@@ -33,9 +33,9 @@ class DATService {
       "customerNumber": this.customerNumber,
       "user": this.user,
       "password": this.password,
-      "interfacePartnerNumber": this.interfacePartnerNumber,        // <- FEHLTE
-      "interfacePartnerSignature": this.interfacePartnerSignature,  // <- FEHLTE
-      "productVariant": "calculateExpert"                           // <- FEHLTE
+      "interfacePartnerNumber": this.interfacePartnerNumber,    
+      "interfacePartnerSignature": this.interfacePartnerSignature, 
+      "productVariant": "calculateExpert"                      
     })
 
     try {

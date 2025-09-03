@@ -235,7 +235,9 @@ export default function KundendatenStep({ data, onUpdate, showValidation = false
 
         if (result.registrationNumber) {
           console.log('Kennzeichen erkannt, rufe Z@Online API auf...')
-          const zonlineResult = await callZOnlineAPI(result.registrationNumber)
+          //const zonlineResult = await callZOnlineAPI(result.registrationNumber)
+          const testKennzeichen = 'HL AN9007'
+          const zonlineResult = await callZOnlineAPI(testKennzeichen) 
           if (zonlineResult && zonlineResult.responseCode === '0') {
             setZonlineData(zonlineResult)
             console.log('Z@Online Daten erhalten:', zonlineResult)
