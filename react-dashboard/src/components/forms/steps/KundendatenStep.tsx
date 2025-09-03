@@ -39,16 +39,43 @@ interface KundendatenData {
 interface KundendatenStepProps {
   data: KundendatenData
   onUpdate: (field: keyof KundendatenData, value: string) => void
-  showValidation?: boolean // Neu: Prop für Validierung
+  showValidation?: boolean
+  onVersicherungsdatenUpdate?: (versicherungsdaten: {
+    versicherungsname: string
+    marke: string
+    modell: string
+    telefon: string
+  }) => void
 }
 
-export default function KundendatenStep({ data, onUpdate, showValidation = false }: KundendatenStepProps) {
+interface ZOnlineRequest {
+    requestor: string;
+    password: string;
+    requestType: '1' | '2' | '3';
+    dateOfLoss: string;
+    licenceNumber: string;
+    country: string;
+    admissionOfficeRequestDesired: '0' | '1';
+}
+
+interface ZOnlineResponse {
+    responseCode: string;
+    manufacturerName?: string;
+    typeName?: string;
+    insuranceCompanyName?: string;
+    insurancePOTelephoneNo?: string;
+    errorMessage?: string;
+}
+
+export default function KundendatenStep({ data, onUpdate, showValidation = false, onVersicherungsdatenUpdate }: KundendatenStepProps) {
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle')
   const [uploadMessage, setUploadMessage] = useState('')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [vinValidation, setVinValidation] = useState<'valid' | 'invalid' | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [zonlineData, setZonlineData] = useState<ZOnlineResponse | null>(null)
+  const [showZonlineModal, setShowZonlineModal] = useState(false)
 
   // API Configuration für Fahrzeugschein Scanner
   const API_URL = 'https://api.fahrzeugschein-scanner.de/'
@@ -202,10 +229,28 @@ export default function KundendatenStep({ data, onUpdate, showValidation = false
           onUpdate('model', result.model)
         }
 
-        console.log(result)
+        if (result.registrationNumber) {
+          console.log('Kennzeichen erkannt, rufe Z@Online API auf...')
+          const zonlineResult = await callZOnlineAPI(result.registrationNumber)
+          if (zonlineResult && zonlineResult.responseCode === '0') {
+            setZonlineData(zonlineResult)
+            console.log('Z@Online Daten erhalten:', zonlineResult)
+          }
+        }
 
         setUploadStatus('success')
         setUploadMessage('Fahrzeugschein automatisch gescannt! Felder wurden ausgefüllt.')
+
+        if (zonlineData && zonlineData.responseCode === '0' && onVersicherungsdatenUpdate) {
+          onVersicherungsdatenUpdate({
+            versicherungsname: zonlineData.insuranceCompanyName || '',
+            marke: zonlineData.manufacturerName || '',
+            modell: zonlineData.typeName || '',
+            telefon: zonlineData.insurancePOTelephoneNo || ''
+          })
+        }
+        
+        setShowZonlineModal(true)
       } else {
         setUploadStatus('error')
         setUploadMessage(result.message || 'Fehler beim automatischen Scannen')
@@ -277,6 +322,58 @@ export default function KundendatenStep({ data, onUpdate, showValidation = false
     const sizes = ['Bytes', 'KB', 'MB', 'GB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+
+  const callZOnlineAPI = async (kennzeichen: string) => {
+    try {
+      console.log('Rufe Z@Online API auf für Kennzeichen:', kennzeichen)
+      
+      const zonlineRequest: ZOnlineRequest = {
+        requestor: import.meta.env.VITE_ZONLINE_REQUESTOR || '',
+        password: import.meta.env.VITE_ZONLINE_PASSWORD || '',
+        requestType: '1',
+        dateOfLoss: new Date().toISOString().split('T')[0],
+        licenceNumber: kennzeichen,
+        country: 'D',
+        admissionOfficeRequestDesired: '0'
+      }
+
+      const xmlRequest = `<?xml version="1.0" encoding="UTF-8"?>
+  <Request>
+    <Requestor>${zonlineRequest.requestor}</Requestor>
+    <Password>${zonlineRequest.password}</Password>
+    <RequestType>${zonlineRequest.requestType}</RequestType>
+    <DateOfLoss>${zonlineRequest.dateOfLoss}</DateOfLoss>
+    <LicenceNumber>${zonlineRequest.licenceNumber}</LicenceNumber>
+    <Country>${zonlineRequest.country}</Country>
+    <AdmissionOfficeRequestDesired>${zonlineRequest.admissionOfficeRequestDesired}</AdmissionOfficeRequestDesired>
+  </Request>`
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/zonline`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/xml' },
+        body: xmlRequest
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const responseText = await response.text()
+      const parser = new DOMParser()
+      const xmlDoc = parser.parseFromString(responseText, 'text/xml')
+
+      return {
+        responseCode: xmlDoc.getElementsByTagName('ResponseCode')[0]?.textContent || '-1',
+        manufacturerName: xmlDoc.getElementsByTagName('ManufacturerName')[0]?.textContent || '',
+        typeName: xmlDoc.getElementsByTagName('TypeName')[0]?.textContent || '',
+        insuranceCompanyName: xmlDoc.getElementsByTagName('InsuranceCompanyName')[0]?.textContent || '',
+        insurancePOTelephoneNo: xmlDoc.getElementsByTagName('InsurancePOTelephoneNo')[0]?.textContent || ''
+      }
+    } catch (error) {
+      console.error('Z@Online API Fehler:', error)
+      return null
+    }
   }
 
   return (
@@ -632,6 +729,34 @@ export default function KundendatenStep({ data, onUpdate, showValidation = false
           </select>
         </div>
       </div>
+
+      {/* Z@Online Modal */}
+      {showZonlineModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg max-w-lg w-full mx-4">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-4 text-center">
+                Fahrzeugdaten und Versicherungsdaten wurden ausgelesen
+              </h3>
+              
+              {zonlineData && zonlineData.responseCode === '0' && (
+                <div className="space-y-2 bg-green-50 p-4 rounded-lg mb-4">
+                  <div><strong>Hersteller:</strong> {zonlineData.manufacturerName || ''}</div>
+                  <div><strong>Typ:</strong> {zonlineData.typeName || ''}</div>
+                  <div><strong>Versicherung:</strong> {zonlineData.insuranceCompanyName || ''}</div>
+                  <div><strong>Telefon:</strong> {zonlineData.insurancePOTelephoneNo || ''}</div>
+                </div>
+              )}
+              
+              <div className="flex justify-center">
+                <Button onClick={() => setShowZonlineModal(false)}>
+                  OK
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

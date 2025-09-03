@@ -77,6 +77,25 @@ interface AbtretungStepProps {
   akteId?: number
 }
 
+interface ZOnlineRequest {
+    requestor: string;
+    password: string;
+    requestType: '1' | '2' | '3';
+    dateOfLoss: string;
+    licenceNumber: string;
+    country: string;
+    admissionOfficeRequestDesired: '0' | '1';
+}
+
+interface ZOnlineResponse {
+    responseCode: string;
+    manufacturerName?: string;
+    typeName?: string;
+    insuranceCompanyName?: string;
+    insurancePOTelephoneNo?: string;
+    errorMessage?: string;
+}
+
 export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved, akteId }: AbtretungStepProps) {
   const { id: urlId } = useParams()
   const actualAkteId = akteId || (urlId ? parseInt(urlId) : null)
@@ -142,7 +161,6 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
   }
 
   // Funktion zum Erstellen der vorausgefüllten Schadenbeschreibung
-  // Funktion zum Erstellen der vorausgefüllten Schadenbeschreibung
   const generateSchadenbeschreibung = () => {
     const kundenname = kundendaten.kunde || '[Name des Geschädigten]'
     const kennzeichen = kundendaten.kennzeichen || '[Kennzeichen eintragen]'
@@ -170,6 +188,60 @@ Die Werkstatt ist hiermit berechtigt, die Reparatur- bzw. Austauschkosten direkt
 Dem Kunden entstehen aus dieser Abtretung keine zusätzlichen Kosten, soweit die Versicherung die Regulierung übernimmt.
 
 Besteht jedoch in der Kaskoversicherung des Kunden eine Selbstbeteiligung, verpflichtet sich der Kunde, diesen Betrag nach Rechnungsstellung direkt an die ausführende Werkstatt zu zahlen. Gleiches gilt, falls die Versicherung eine (Teil-)Regulierung verweigert.`
+  }
+
+  const callZOnlineAPI = async (kennzeichen: string) => {
+    try {
+      console.log('Rufe Z@Online API auf für Kennzeichen:', kennzeichen)
+      
+      const zonlineRequest: ZOnlineRequest = {
+        requestor: import.meta.env.VITE_ZONLINE_REQUESTOR || '',
+        password: import.meta.env.VITE_ZONLINE_PASSWORD || '',
+        requestType: '1',
+        dateOfLoss: new Date().toISOString().split('T')[0],
+        licenceNumber: kennzeichen,
+        country: 'D',
+        admissionOfficeRequestDesired: '0'
+      }
+
+      const xmlRequest = `<?xml version="1.0" encoding="UTF-8"?>
+  <Request>
+    <Requestor>${zonlineRequest.requestor}</Requestor>
+    <Password>${zonlineRequest.password}</Password>
+    <RequestType>${zonlineRequest.requestType}</RequestType>
+    <DateOfLoss>${zonlineRequest.dateOfLoss}</DateOfLoss>
+    <LicenceNumber>${zonlineRequest.licenceNumber}</LicenceNumber>
+    <Country>${zonlineRequest.country}</Country>
+    <AdmissionOfficeRequestDesired>${zonlineRequest.admissionOfficeRequestDesired}</AdmissionOfficeRequestDesired>
+  </Request>`
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/zonline`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/xml' },
+        body: xmlRequest
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const responseText = await response.text()
+      const parser = new DOMParser()
+      const xmlDoc = parser.parseFromString(responseText, 'text/xml')
+
+      const zonlineResponse: ZOnlineResponse = {
+        responseCode: xmlDoc.getElementsByTagName('ResponseCode')[0]?.textContent || '-1',
+        manufacturerName: xmlDoc.getElementsByTagName('ManufacturerName')[0]?.textContent || '',
+        typeName: xmlDoc.getElementsByTagName('TypeName')[0]?.textContent || '',
+        insuranceCompanyName: xmlDoc.getElementsByTagName('InsuranceCompanyName')[0]?.textContent || '',
+        insurancePOTelephoneNo: xmlDoc.getElementsByTagName('InsurancePOTelephoneNo')[0]?.textContent || ''
+      }
+
+      return zonlineResponse
+    } catch (error) {
+      console.error('Z@Online API Fehler:', error)
+      return null
+    }
   }
 
   // Kundendaten aus übergeordnetem Formular übernehmen
