@@ -63,6 +63,7 @@ interface ZOnlineResponse {
     manufacturerName?: string;
     typeName?: string;
     insuranceCompanyName?: string;
+    insurancePolicyNumber?: string;
     insurancePOTelephoneNo?: string;
     errorMessage?: string;
 }
@@ -236,14 +237,22 @@ export default function KundendatenStep({ data, onUpdate, showValidation = false
             setZonlineData(zonlineResult)
             console.log('Z@Online Daten erhalten:', zonlineResult)
             
+            if (zonlineResult.insurancePolicyNumber) {
+              onUpdate('versicherungsnummer', zonlineResult.insurancePolicyNumber)
+            }
+
             // Z@Online Daten an Parent weiterleiten
             if (onVersicherungsdatenUpdate) {
+              console.log('WEITERLEITUNG - Z@Online Daten:', zonlineResult) // DEBUG
               onVersicherungsdatenUpdate({
                 versicherungsname: zonlineResult.insuranceCompanyName || '',
                 marke: zonlineResult.manufacturerName || '',
                 modell: zonlineResult.typeName || '',
                 telefon: zonlineResult.insurancePOTelephoneNo || ''
               })
+              console.log('WEITERLEITUNG - Daten gesendet!') // DEBUG
+            } else {
+              console.log('WEITERLEITUNG - onVersicherungsdatenUpdate ist undefined!') // DEBUG
             }
           }
         }
@@ -368,6 +377,7 @@ export default function KundendatenStep({ data, onUpdate, showValidation = false
         manufacturerName: xmlDoc.getElementsByTagName('ManufacturerName')[0]?.textContent || '',
         typeName: xmlDoc.getElementsByTagName('TypeName')[0]?.textContent || '',
         insuranceCompanyName: xmlDoc.getElementsByTagName('InsuranceCompanyName')[0]?.textContent || '',
+        insurancePolicyNumber: xmlDoc.getElementsByTagName('InsurancePolicyNumber')[0]?.textContent || '',
         insurancePOTelephoneNo: xmlDoc.getElementsByTagName('InsurancePOTelephoneNo')[0]?.textContent || ''
       }
     } catch (error) {
