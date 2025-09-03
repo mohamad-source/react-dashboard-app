@@ -177,14 +177,6 @@ const extendedAktenApi = {
     }
 }
 
-const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
-const [versicherungsdaten, setVersicherungsdaten] = useState({
-    versicherungsname: '',
-    marke: '',
-    modell: '',
-    telefon: ''
-})
-
 export default function AkteForm() {
     const { user } = useUser()
     const { id } = useParams()
@@ -263,6 +255,12 @@ export default function AkteForm() {
     })
         
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
+    const [versicherungsdaten, setVersicherungsdaten] = useState({
+        versicherungsname: '',
+        marke: '',
+        modell: '',
+        telefon: ''
+    })
 
     useEffect(() => {
         if (id && savedAkteId) {
