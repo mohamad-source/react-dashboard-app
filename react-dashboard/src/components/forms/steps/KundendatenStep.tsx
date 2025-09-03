@@ -335,6 +335,8 @@ export default function KundendatenStep({ data, onUpdate, showValidation = false
 
   const callZOnlineAPI = async (kennzeichen: string) => {
     try {
+      // TODO: Temporär hardcoded für Tests
+      const testKennzeichen = 'HL AN9007'
       console.log('Rufe Z@Online API auf für Kennzeichen:', kennzeichen)
       
       const zonlineRequest: ZOnlineRequest = {
@@ -342,7 +344,8 @@ export default function KundendatenStep({ data, onUpdate, showValidation = false
         password: import.meta.env.VITE_ZONLINE_PASSWORD || '',
         requestType: '1',
         dateOfLoss: new Date().toISOString().split('T')[0],
-        licenceNumber: kennzeichen,
+        //licenceNumber: kennzeichen,
+        licenceNumber: testKennzeichen,
         country: 'D',
         admissionOfficeRequestDesired: '0'
       }
