@@ -369,10 +369,11 @@ export default function KundendatenStep({ data, onUpdate, showValidation = false
       }
 
       const responseText = await response.text()
+      console.log('Z@Online RAW Response:', responseText)
       const parser = new DOMParser()
       const xmlDoc = parser.parseFromString(responseText, 'text/xml')
 
-      return {
+      const parsedResponse = {
         responseCode: xmlDoc.getElementsByTagName('ResponseCode')[0]?.textContent || '-1',
         manufacturerName: xmlDoc.getElementsByTagName('ManufacturerName')[0]?.textContent || '',
         typeName: xmlDoc.getElementsByTagName('TypeName')[0]?.textContent || '',
@@ -380,6 +381,10 @@ export default function KundendatenStep({ data, onUpdate, showValidation = false
         insurancePolicyNumber: xmlDoc.getElementsByTagName('InsurancePolicyNumber')[0]?.textContent || '',
         insurancePOTelephoneNo: xmlDoc.getElementsByTagName('InsurancePOTelephoneNo')[0]?.textContent || ''
       }
+
+      console.log('Z@Online PARSED Response:', parsedResponse) // WICHTIGER DEBUG
+
+      return parsedResponse
     } catch (error) {
       console.error('Z@Online API Fehler:', error)
       return null
