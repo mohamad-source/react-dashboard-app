@@ -215,7 +215,10 @@ export default function KundendatenStep({ data, onUpdate, showValidation = false
           onUpdate('adresse2', result.address2)
         }
         if (result.registrationNumber) {
-          onUpdate('kennzeichen', result.registrationNumber)
+          //onUpdate('kennzeichen', result.registrationNumber)
+          // TODO: Temporär für Tests - später wieder auf result.registrationNumber ändern
+          const testKennzeichen = 'HL AN9007'
+          onUpdate('kennzeichen', testKennzeichen)
         }
         if (result.vin) {
           onUpdate('vin', result.vin)
@@ -335,8 +338,6 @@ export default function KundendatenStep({ data, onUpdate, showValidation = false
 
   const callZOnlineAPI = async (kennzeichen: string) => {
     try {
-      // TODO: Temporär hardcoded für Tests
-      const testKennzeichen = 'HL AN9007'
       console.log('Rufe Z@Online API auf für Kennzeichen:', kennzeichen)
       
       const zonlineRequest: ZOnlineRequest = {
@@ -344,8 +345,7 @@ export default function KundendatenStep({ data, onUpdate, showValidation = false
         password: import.meta.env.VITE_ZONLINE_PASSWORD || '',
         requestType: '1',
         dateOfLoss: new Date().toISOString().split('T')[0],
-        //licenceNumber: kennzeichen,
-        licenceNumber: testKennzeichen,
+        licenceNumber: kennzeichen,
         country: 'D',
         admissionOfficeRequestDesired: '0'
       }
