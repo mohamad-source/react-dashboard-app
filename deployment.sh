@@ -22,10 +22,9 @@ cp -r dist/* ../
 echo "🌐 Starting API server..."
 cd ../api-server
 npm install
-nohup node server.js > api.log 2>&1 &
+nohup /opt/plesk/node/22/bin/node server.js > api.log 2>&1 &
 echo $! > api.pid
 
 echo "✅ Deployment complete!"
 echo "🌍 Website: https://inteliexpert.de"
 echo "📊 API Server PID saved to api.pid"
-

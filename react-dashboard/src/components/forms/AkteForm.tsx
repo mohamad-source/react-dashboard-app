@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { useParams } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import DashboardLayout from '../DashboardLayout'
-import { Check, Copy, CheckCircle as StepCheck } from 'lucide-react'
+import { Check, Copy, ArrowLeft, Undo, ChevronRight as StepCheck } from 'lucide-react'
 import KundendatenStep from './steps/KundendatenStep'
 import AbtretungStep from './steps/AbtretungStep'
 import BilderStep from './steps/BilderStep'
@@ -349,18 +349,18 @@ export default function AkteForm() {
     }
 
     const handleTabClick = async (stepIndex: number) => {
-    const currentStepId = formSteps[currentStep].id
-    
-    // Aktuellen Schritt speichern
-    await saveCurrentStep()
-    
-    // Bei Kundendaten: Validierung aktivieren wenn verlassen wird und nicht valid
-    if (currentStepId === 'kundendaten' && !isStepValid(currentStepId)) {
-        setShowKundendatenValidation(true)
+        const currentStepId = formSteps[currentStep].id
+
+        // Aktuellen Schritt speichern
+        await saveCurrentStep()
+
+        // Bei Kundendaten: Validierung aktivieren wenn verlassen wird und nicht valid
+        if (currentStepId === 'kundendaten' && !isStepValid(currentStepId)) {
+            setShowKundendatenValidation(true)
+        }
+
+        setCurrentStep(stepIndex)
     }
-    
-    setCurrentStep(stepIndex)
-}
 
     // Formular-Daten aktualisieren (für andere Schritte)
     const updateFormData = (stepId: string, field: string, value: string) => {
@@ -732,6 +732,46 @@ export default function AkteForm() {
                                     </CardHeader>
                                     <CardContent>
                                         {renderStepContent()}
+
+                                        {/* Navigation Buttons - HIER richtig platziert */}
+                                        <div className="flex justify-between items-center mt-6 pt-6 border-t">
+                                            <Button
+                                                variant="outline"
+                                                onClick={prevStep}
+                                                disabled={currentStep === 0}
+                                            >
+                                                <ArrowLeft className="mr-2 h-4 w-4" />
+                                                Zurück
+                                            </Button>
+
+                                            {currentStep === formSteps.length - 1 ? (
+                                                <div className="flex gap-3">
+                                                    {isAkteCompleted ? (
+                                                        <Button
+                                                            variant="outline"
+                                                            onClick={() => {/* Akte wieder öffnen Logic */ }}
+                                                            className="text-orange-600 border-orange-600 hover:bg-orange-50"
+                                                        >
+                                                            <Undo className="mr-2 h-4 w-4" />
+                                                            Akte wieder öffnen
+                                                        </Button>
+                                                    ) : (
+                                                        <Button
+                                                            onClick={() => {/* Akte abschließen Logic */ }}
+                                                            className="bg-green-600 hover:bg-green-700"
+                                                        >
+                                                            <Check className="mr-2 h-4 w-4" />
+                                                            Akte abschließen
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <Button onClick={nextStep}>
+                                                    Weiter
+                                                    <ChevronRight className="ml-2 h-4 w-4" />
+                                                </Button>
+                                            )}
+                                        </div>
                                     </CardContent>
                                 </Card>
                             </div>

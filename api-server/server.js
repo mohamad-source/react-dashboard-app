@@ -11,8 +11,12 @@ require('dotenv').config();
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use('/api/zonline', express.text({ 
+  type: ['application/xml', 'text/xml'], 
+  limit: '1mb' 
+}));
+app.use(express.text({ type: 'text/plain' }));
 
-// DAT Service Class - NACH DEN REQUIRES EINFÜGEN
 class DATService {
   constructor() {
     this.customerNumber = "1331332"
@@ -319,6 +323,18 @@ app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`)
   next()
 })
+
+app.use('/api/zonline', (req, res, next) => {
+  console.log('=== ZONLINE DEBUG START ===');
+  console.log('Method:', req.method);
+  console.log('URL:', req.url);
+  console.log('Headers:', req.headers);
+  console.log('Body type:', typeof req.body);
+  console.log('Body content:', req.body);
+  console.log('Body keys:', req.body ? Object.keys(req.body) : 'no keys');
+  console.log('=== ZONLINE DEBUG END ===');
+  next();
+});
 
 // Akte aktualisieren
 app.put('/api/akten/:id', async (req, res) => {
@@ -1268,39 +1284,108 @@ app.patch('/api/akten/:id/status', async (req, res) => {
   }
 })
 
-// Z@Online API Proxy - NACH DEN ANDEREN ROUTES EINFÜGEN
+// Z@Online API Endpoint - VOR app.listen()
+
+// Z@Online API Endpoint - korrigierte Version
 app.post('/api/zonline', async (req, res) => {
+  const net = require('net');
+  
   try {
-    const xmlRequest = req.body;
+    // XML aus req.body extrahieren
+    let xmlRequest;
     
-    // Z@Online API über VPN-Verbindung
-    const response = await fetch('https://185.22.150.228:443/Z@Online', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/xml',
-        'SOAPAction': 'ResponsibleInsuranceRequest'
-      },
-      body: xmlRequest,
-      // VPN-Konfiguration würde hier stehen
-      // agent: vpnAgent // falls nötig
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Z@Online API Error: ${response.status}`);
+    // Je nach Content-Type unterschiedlich behandeln
+    if (typeof req.body === 'string') {
+      xmlRequest = req.body;
+    } else if (Buffer.isBuffer(req.body)) {
+      xmlRequest = req.body.toString('utf8');
+    } else {
+      throw new Error('Ungültiges Request-Format');
     }
     
-    const responseXml = await response.text();
+    // Validierung
+    if (!xmlRequest || xmlRequest.trim() === '' || xmlRequest === '{}') {
+      throw new Error('Leere oder ungültige XML-Anfrage erhalten');
+    }
     
-    res.setHeader('Content-Type', 'application/xml');
-    res.send(responseXml);
+    // Prüfen ob es sich um gültiges XML handelt
+    if (!xmlRequest.includes('<Request>') || !xmlRequest.includes('</Request>')) {
+      throw new Error('Ungültiges XML-Format - Request-Tags fehlen');
+    }
+    
+    // TCP-Verbindung zu GDV Test-Umgebung
+    const socket = new net.Socket();
+    let responseData = '';
+    let isConnected = false;
+    
+    // Promise für die TCP-Kommunikation
+    const tcpPromise = new Promise((resolve, reject) => {
+      
+      socket.setTimeout(15000); // 15 Sekunden Timeout
+      
+      socket.on('connect', () => {
+        console.log('Erfolgreich mit GDV verbunden');
+        isConnected = true;
+        
+        // XML-Request mit korrekter Kodierung senden
+        socket.write(xmlRequest, 'utf8');
+        console.log('XML-Request gesendet');
+      });
+      
+      socket.on('data', (data) => {
+        const chunk = data.toString('utf8');
+        responseData += chunk;
+        console.log('Daten von GDV erhalten:', chunk.length, 'Zeichen');
+      });
+      
+      socket.on('close', () => {
+        console.log('GDV-Verbindung geschlossen');
+        console.log('Gesamte Response-Länge:', responseData.length);
+        
+        if (responseData && responseData.trim() !== '') {
+          resolve(responseData);
+        } else {
+          reject(new Error('Leere Antwort von GDV erhalten'));
+        }
+      });
+      
+      socket.on('error', (error) => {
+        console.error('TCP-Socket Fehler:', error);
+        reject(new Error(`Verbindung zu GDV fehlgeschlagen: ${error.message}`));
+      });
+      
+      socket.on('timeout', () => {
+        console.error('TCP-Verbindung Timeout nach 15 Sekunden');
+        socket.destroy();
+        reject(new Error('Timeout beim Verbinden zu GDV (15s)'));
+      });
+    });
+    
+    // Verbindung zu GDV Test-Server starten
+    console.log('Verbinde zu GDV Server 185.22.150.228:4027...');
+    socket.connect(4027, '185.22.150.228');
+    
+    // Auf Response warten
+    const gdvResponse = await tcpPromise;
+    
+    // Success Response
+    console.log('GDV-Response erfolgreich erhalten');
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.status(200).send(gdvResponse);
     
   } catch (error) {
     console.error('Z@Online API Fehler:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error Stack:', error.stack);
+    
+    // Error Response
+    res.status(500).json({ 
+      success: false,
+      error: error.message,
+      details: 'Siehe Server-Logs für weitere Details'
+    });
   }
 });
 
-
-app.listen(3001, () => {
-  console.log('API Server running on http://localhost:3001');
+app.listen(3001, '0.0.0.0', () => {
+  console.log('API Server running on all interfaces:3001');
 });

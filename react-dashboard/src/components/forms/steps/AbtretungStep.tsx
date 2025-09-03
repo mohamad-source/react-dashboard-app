@@ -6,9 +6,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { 
-  FileText, 
-  Signature, 
+import {
+  FileText,
+  Signature,
   Download,
   Check,
   X,
@@ -17,7 +17,9 @@ import {
   Car,
   Shield,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Edit,
+  AlertTriangle
 } from 'lucide-react'
 
 interface KundendatenData {
@@ -43,25 +45,25 @@ interface AbtretungData {
   kundenname: string
   mobilnr: string
   adresse: string
-  
+
   // Versicherung
   versicherungsschein: string
   schadennummer: string
   versicherungsname: string
   selbstbeteiligung: string
   vorsteuer: string
-  
+
   // Fahrzeug
   marke: string
   modell: string
   kennzeichen: string
   schadenzeitpunkt: string
   schadenbeschreibung: string
-  
+
   // Abtretung
   kasko: boolean
   haftpflicht: boolean
-  
+
   // Unterschrift
   signatureData: string
   isSignatureApplied: boolean
@@ -84,6 +86,8 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
   const [showSignatureModal, setShowSignatureModal] = useState(false)
   const [isAbtretungSigned, setIsAbtretungSigned] = useState(false)
   const [signedDate, setSignedDate] = useState<string>('')
+  const [editMode, setEditMode] = useState(false)
+  const [originalData, setOriginalData] = useState<AbtretungData | null>(null)
   const [showModal, setShowModal] = useState<{
     type: 'error' | 'success' | 'info',
     title: string,
@@ -105,29 +109,72 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
     try {
       const response = await fetch(`${API_BASE}/api/akten/${actualAkteId}`)
       const akteData = await response.json()
-      
+
       if (akteData.abtretung_signiert) {
         setIsAbtretungSigned(true)
-        setSignedDate(new Date(akteData.signiert_am).toLocaleDateString('de-DE') + ' ' + 
-                     new Date(akteData.signiert_am).toLocaleTimeString('de-DE'))
+        setSignedDate(new Date(akteData.signiert_am).toLocaleDateString('de-DE') + ' ' +
+          new Date(akteData.signiert_am).toLocaleTimeString('de-DE'))
       }
     } catch (error) {
       console.error('Fehler beim Prüfen des Abtretungsstatus:', error)
     }
   }
-  
+
+  // Edit-Modus aktivieren
+  const enterEditMode = () => {
+    setOriginalData({ ...data })
+    setEditMode(true)
+    // Unterschrift zurücksetzen für neue Signierung
+    onUpdate('isSignatureApplied', false)
+    onUpdate('signatureData', '')
+  }
+
+  // Edit-Modus abbrechen
+  const cancelEdit = () => {
+    if (originalData) {
+      // Ursprüngliche Daten wiederherstellen
+      Object.keys(originalData).forEach(key => {
+        onUpdate(key as keyof AbtretungData, originalData[key as keyof AbtretungData])
+      })
+    }
+    setEditMode(false)
+    setOriginalData(null)
+  }
+
+  // Funktion zum Erstellen der vorausgefüllten Schadenbeschreibung
   // Funktion zum Erstellen der vorausgefüllten Schadenbeschreibung
   const generateSchadenbeschreibung = () => {
-    const kennzeichen = data.kennzeichen || '[Kennzeichen eintragen]'
-    const scheibe = kundendaten.scheibe || 'Frontscheibe / Seitenscheibe / Heckscheibe'
-    const datum = data.schadenzeitpunkt || '[Datum]'
-    
-    return `Am Fahrzeug mit dem amtlichen Kennzeichen ${kennzeichen} entstand ein Glasschaden. Die ${scheibe} weist einen Steinschlag / Riss / Bruch im Bereich [Position der Scheibe, z. B. Fahrerseite unten rechts] auf. Der Schaden beeinträchtigt die Sicht des Fahrers / Stabilität der Scheibe / Verkehrssicherheit und macht eine Reparatur bzw. einen Austausch erforderlich. Der Schaden trat am ${datum} während der Fahrt / durch einen Steinschlag / äußere Einwirkung auf. Weitere Vorschäden an der Scheibe sind nicht vorhanden / wurden nicht festgestellt.`
+    const kundenname = kundendaten.kunde || '[Name des Geschädigten]'
+    const kennzeichen = kundendaten.kennzeichen || '[Kennzeichen eintragen]'
+    const fahrzeugtyp = kundendaten.marke && kundendaten.model
+      ? `${kundendaten.marke} ${kundendaten.model}`
+      : '[Fahrzeugmarke und Modell]'
+    const schadentag = kundendaten.schadentag || '[Schadentag, Datum eintragen]'
+    const schadenort = kundendaten.schadenort || '[Straße/Ort des Schadens]'
+    const scheibe = kundendaten.scheibe || '[Frontscheibe / Seitenscheibe / Heckscheibe]'
+
+    return `Schadens- und Abtretungserklärung – Glasschaden
+
+Am Fahrzeug des Kunden ${kundenname}, amtliches Kennzeichen ${kennzeichen}, Fahrzeugtyp ${fahrzeugtyp}, ist am ${schadentag} während der Fahrt auf der ${schadenort} ein Glasschaden entstanden.
+
+Die ${scheibe} weist einen [Steinschlag / Riss / Bruch im Bereich …] auf. Dieser Schaden beeinträchtigt die Sicht des Fahrers, die Stabilität der Scheibe sowie die Verkehrssicherheit des Fahrzeugs. Eine Reparatur bzw. ein Austausch der Scheibe ist zwingend erforderlich.
+
+Der Kunde bestätigt hiermit, dass der oben beschriebene Schaden durch äußere Einwirkung (z. B. Steinschlag) während der Fahrt entstanden ist.
+
+Abtretungserklärung
+
+Der Unterzeichner tritt seine Ansprüche aus dem Schadenereignis gegenüber der zuständigen Versicherungsgesellschaft unwiderruflich an die ausführende Autoglas-Werkstatt [Name der Werkstatt] ab.
+
+Die Werkstatt ist hiermit berechtigt, die Reparatur- bzw. Austauschkosten direkt mit der Versicherung abzurechnen.
+
+Dem Kunden entstehen aus dieser Abtretung keine zusätzlichen Kosten, soweit die Versicherung die Regulierung übernimmt.
+
+Besteht jedoch in der Kaskoversicherung des Kunden eine Selbstbeteiligung, verpflichtet sich der Kunde, diesen Betrag nach Rechnungsstellung direkt an die ausführende Werkstatt zu zahlen. Gleiches gilt, falls die Versicherung eine (Teil-)Regulierung verweigert.`
   }
 
   // Kundendaten aus übergeordnetem Formular übernehmen
   useEffect(() => {
-    if (!isAbtretungSigned) {
+    if (!isAbtretungSigned || editMode) {
       if (kundendaten.kunde && !data.kundenname) {
         onUpdate('kundenname', kundendaten.kunde)
       }
@@ -150,8 +197,8 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
         onUpdate('vorsteuer', kundendaten.vorsteuer_berechtigt.toLowerCase())
       }
       if (!data.schadenbeschreibung) {
-  onUpdate('schadenbeschreibung', generateSchadenbeschreibung())
-}
+        onUpdate('schadenbeschreibung', generateSchadenbeschreibung())
+      }
       if (kundendaten.marke && !data.marke) {
         onUpdate('marke', kundendaten.marke)
       }
@@ -163,12 +210,12 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
         onUpdate('adresse', vollAdresse)
       }
     }
-  }, [kundendaten, data, onUpdate, isAbtretungSigned])
+  }, [kundendaten, data, onUpdate, isAbtretungSigned, editMode])
 
   // Canvas Setup
   useEffect(() => {
     if (!showSignatureModal) return
-    
+
     const canvas = canvasRef.current
     if (!canvas) return
 
@@ -180,7 +227,7 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
     canvas.width = rect.width * 2
     canvas.height = rect.height * 2
     ctx.scale(2, 2)
-    
+
     // Canvas Style
     ctx.strokeStyle = '#000000'
     ctx.lineWidth = 2
@@ -260,11 +307,11 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
 
     try {
       console.log('Abtretung wird gespeichert...')
-      
+
       if (!akteId) {
         throw new Error('Keine Akte-ID verfügbar')
       }
-      
+
       const formData = {
         mobilnr: data.mobilnr,
         schadennummer: data.schadennummer,
@@ -280,9 +327,9 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
       }
 
       const response = await fetch(`${API_BASE}/api/akten/${akteId}/abtretung`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json' 
+        method: editMode ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           signature: data.signatureData,
@@ -295,13 +342,15 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
       if (result.success) {
         setShowModal({
           type: 'success',
-          title: 'Erfolgreich gespeichert',
-          message: 'Abtretung erfolgreich gespeichert!',
+          title: editMode ? 'Änderungen gespeichert' : 'Erfolgreich gespeichert',
+          message: editMode ? 'Abtretung erfolgreich aktualisiert!' : 'Abtretung erfolgreich gespeichert!',
           onConfirm: () => {
             // Status aktualisieren
             setIsAbtretungSigned(true)
-            setSignedDate(new Date().toLocaleDateString('de-DE') + ' ' + 
-                         new Date().toLocaleTimeString('de-DE'))
+            setSignedDate(new Date().toLocaleDateString('de-DE') + ' ' +
+              new Date().toLocaleTimeString('de-DE'))
+            setEditMode(false)
+            setOriginalData(null)
           }
         })
         console.log('Abtretung gespeichert:', result)
@@ -319,8 +368,8 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
     }
   }
 
-  // Wenn Abtretung bereits vorhanden ist - PDF-Ansicht anzeigen
-  if (isAbtretungSigned) {
+  // Wenn Abtretung bereits vorhanden ist UND nicht im Edit-Modus - PDF-Ansicht anzeigen
+  if (isAbtretungSigned && !editMode) {
     return (
       <div className="space-y-4">
         {/* Success Alert */}
@@ -351,14 +400,22 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
                 </Badge>
               </div>
 
-              {/* Download Section */}
-              <div className="text-center py-4">
+              {/* Action Buttons */}
+              <div className="flex gap-3 justify-center">
                 <Button
                   onClick={() => window.open(`${API_BASE}/api/akten/${actualAkteId}/pdf`, '_blank')}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
                   <Download className="mr-2 h-4 w-4" />
                   PDF herunterladen
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={enterEditMode}
+                  className="text-orange-600 border-orange-600 hover:bg-orange-50"
+                >
+                  <Edit className="mr-2 h-4 w-4" />
+                  Abtretung bearbeiten
                 </Button>
               </div>
             </div>
@@ -368,9 +425,24 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
     )
   }
 
-  // Normales Formular wenn Abtretung noch nicht vorhanden
+  // Normales Formular wenn Abtretung noch nicht vorhanden ODER im Edit-Modus
   return (
     <div className="space-y-6">
+      {/* Edit-Modus Warnung */}
+      {editMode && (
+        <Alert className="border-orange-200 bg-orange-50">
+          <AlertTriangle className="h-5 w-5 text-orange-600" />
+          <AlertDescription>
+            <div>
+              <h4 className="font-semibold text-orange-800">Bearbeitungsmodus</h4>
+              <p className="text-orange-700 text-sm mt-1">
+                Sie bearbeiten eine bereits unterschriebene Abtretung. Änderungen erfordern eine neue Unterschrift.
+              </p>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Header Info */}
       <Alert>
         <AlertDescription>
@@ -386,10 +458,11 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
             Abtretungserklärung - AutoGlasNeu
+            {editMode && <Badge variant="secondary" className="ml-2">Bearbeitung</Badge>}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-6 bg-white">
-          
+
           {/* 1. Kunde / Versicherungsnehmer */}
           <div className="mb-6">
             <div className="flex items-center gap-2 mb-4">
@@ -549,13 +622,13 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
             <div className="mt-4">
               <Label htmlFor="schadenbeschreibung">Schadenbeschreibung:</Label>
               <textarea
-  id="schadenbeschreibung"
-  value={data.schadenbeschreibung}
-  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => onUpdate('schadenbeschreibung', e.target.value)}
-  placeholder="Schadenbeschreibung eingeben..."
-  rows={10}
-  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-/>
+                id="schadenbeschreibung"
+                value={data.schadenbeschreibung}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => onUpdate('schadenbeschreibung', e.target.value)}
+                placeholder="Schadenbeschreibung eingeben..."
+                rows={10}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              />
             </div>
           </div>
 
@@ -567,7 +640,7 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
                 <input
                   type="checkbox"
                   id="kasko"
-                  defaultChecked={true}
+                  checked={data.kasko}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdate('kasko', e.target.checked)}
                   className="rounded"
                 />
@@ -577,6 +650,7 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
                 <input
                   type="checkbox"
                   id="haftpflicht"
+                  checked={data.haftpflicht}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdate('haftpflicht', e.target.checked)}
                   className="rounded"
                 />
@@ -594,9 +668,9 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
               <Signature className="h-5 w-5" />
               Unterschrift VN:
             </h4>
-            
+
             {/* Unterschrift Display */}
-            <div 
+            <div
               className="border-3 border-dashed border-blue-300 p-4 bg-blue-50 rounded-lg cursor-pointer min-h-24 flex items-center justify-center"
               onClick={() => setShowSignatureModal(true)}
             >
@@ -613,6 +687,16 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
 
             {/* Action Buttons */}
             <div className="flex gap-2 mt-4">
+              {editMode && (
+                <Button
+                  onClick={cancelEdit}
+                  variant="outline"
+                  className="flex-1 text-gray-600"
+                >
+                  <X className="mr-2 h-4 w-4" />
+                  Abbrechen
+                </Button>
+              )}
               <Button
                 onClick={() => setShowSignatureModal(true)}
                 variant="outline"
@@ -627,7 +711,7 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
                   className="flex-1 bg-green-600 hover:bg-green-700"
                 >
                   <Save className="mr-2 h-4 w-4" />
-                  Abtretung speichern
+                  {editMode ? 'Änderungen speichern' : 'Abtretung speichern'}
                 </Button>
               )}
             </div>
@@ -640,7 +724,7 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
             <h3 className="text-lg font-semibold mb-4">Unterschrift</h3>
-            
+
             <div className="border-2 border-dashed border-blue-300 rounded-lg mb-4">
               <canvas
                 ref={canvasRef}
@@ -677,7 +761,7 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
                 </Button>
               </div>
             </div>
-            
+
             <div className="mt-3 text-center">
               <small className="text-gray-500">
                 1. Unterschreiben Sie hier • 2. Übernehmen Sie die Unterschrift • 3. Speichern Sie die Abtretung
@@ -698,9 +782,9 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
                 {showModal.type === 'info' && <AlertCircle className="h-5 w-5 text-blue-500" />}
                 {showModal.title}
               </h3>
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setShowModal(null)}
               >
                 <X className="h-4 w-4" />
@@ -710,14 +794,14 @@ export default function AbtretungStep({ data, kundendaten, onUpdate, isAkteSaved
               <p className="text-gray-700">{showModal.message}</p>
             </div>
             <div className="flex justify-end gap-2 p-4 border-t">
-              <Button 
+              <Button
                 onClick={() => {
                   showModal.onConfirm?.()
                   setShowModal(null)
                 }}
-                className={showModal.type === 'error' ? 'bg-red-600 hover:bg-red-700' : 
-                          showModal.type === 'success' ? 'bg-green-600 hover:bg-green-700' : 
-                          'bg-blue-600 hover:bg-blue-700'}
+                className={showModal.type === 'error' ? 'bg-red-600 hover:bg-red-700' :
+                  showModal.type === 'success' ? 'bg-green-600 hover:bg-green-700' :
+                    'bg-blue-600 hover:bg-blue-700'}
               >
                 OK
               </Button>

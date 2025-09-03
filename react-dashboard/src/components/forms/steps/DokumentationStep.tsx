@@ -10,7 +10,6 @@ import {
     Calculator,
     CheckCircle,
     Download,
-    ArrowLeft,
     Save,
     AlertTriangle,
     Loader2,
@@ -446,14 +445,6 @@ export default function DokumentationStep({
                     </div>
                 </CardContent>
             </Card>
-
-            {/* Navigation */}
-            <div className="flex justify-start">
-                <Button variant="outline">
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Zurück
-                </Button>
-            </div>
 
             {/* Modal */}
             {showModal && (
