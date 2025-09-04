@@ -35,30 +35,8 @@ export NODE_ENV=production
 
 echo -e "${GREEN}✅ Environment configured${NC}"
 
-# =====================================
-# SCHRITT 1: GIT PULL
-# =====================================
-echo -e "\n${BLUE}📥 SCHRITT 1: Aktualisiere Code...${NC}"
-
-# Sichere lokale Änderungen falls vorhanden
-if ! git diff --quiet || ! git diff --cached --quiet; then
-    echo -e "${YELLOW}💾 Sichere lokale Änderungen...${NC}"
-    git stash push -m "Auto-stash before deployment $(date)"
-fi
-
-git pull origin main
-if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✅ Git pull erfolgreich${NC}"
-    
-    # Wende lokale Änderungen wieder an falls vorhanden
-    if git stash list | grep -q "Auto-stash before deployment"; then
-        echo -e "${YELLOW}📥 Wende lokale Änderungen wieder an...${NC}"
-        git stash pop
-    fi
-else
-    echo -e "${RED}❌ Git pull fehlgeschlagen${NC}"
-    exit 1
-fi
+# Git pull übersprungen - nur lokales Deployment
+echo -e "\n${GREEN}🚀 Starte lokales Deployment...${NC}"
 
 # =====================================
 # SCHRITT 2: BACKEND DEPENDENCIES
