@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useUser } from '@clerk/clerk-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -45,21 +45,57 @@ export default function Dashboard() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('alle')
   const [error, setError] = useState<string | null>(null)
+  
+  // AbortController für Request Cleanup
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   // API URL from environment
   const API_BASE = import.meta.env.VITE_API_URL.replace('/api', '')
 
-  useEffect(() => {
-    loadAkten()
-  }, [])
+  // Optimized Batch Image Loading - löst N+1 Problem  
+  const loadFirstImages = useCallback(async (aktenList: Akte[]) => {
+    if (!aktenList.length) return;
 
-  const loadAkten = async () => {
+    try {
+      const akteIds = aktenList.map(akte => akte.id);
+      
+      // Single API call statt N calls
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/akten/images/batch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ akteIds })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success && data.images) {
+        setAktenImages(data.images);
+      }
+    } catch (error) {
+      console.error('Batch image loading error:', error);
+    }
+  }, []);
+
+  const loadAkten = useCallback(async () => {
+    // Cancel previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    
+    abortControllerRef.current = new AbortController()
+    
     try {
       setLoading(true)
       setError(null)
       
       const data = await aktenApi.getAkten()
-      console.log('Loaded akten data:', data)
+      
+      // Check if component is still mounted
+      if (abortControllerRef.current?.signal.aborted) return
+      
+      // Data loaded successfully
       setAkten(data || [])
       
       // Lade erstes Bild für jede Akte
@@ -68,51 +104,40 @@ export default function Dashboard() {
       }
       
     } catch (err) {
-      setError('Fehler beim Laden der Akten: ' + (err as Error).message)
+      // Don't set error if request was cancelled
+      if (err.name !== 'AbortError') {
+        setError('Fehler beim Laden der Akten: ' + (err as Error).message)
+      }
     } finally {
-      setLoading(false)
+      if (!abortControllerRef.current?.signal.aborted) {
+        setLoading(false)
+      }
     }
-  }
+  }, [loadFirstImages])
 
-  // Erstes Bild für jede Akte laden
-  const loadFirstImages = async (aktenList: Akte[]) => {
-    const imagePromises = aktenList.map(async (akte) => {
-      try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/akten/${akte.id}/bilder`)
-        const data = await response.json()
-        
-        if (data.success && data.bilder && data.bilder.length > 0) {
-          return { akteId: akte.id, filename: data.bilder[0].filename }
-        }
-        return null
-      } catch (error) {
-        console.error(`Fehler beim Laden der Bilder für Akte ${akte.id}:`, error)
-        return null
+  useEffect(() => {
+    loadAkten()
+    
+    // Cleanup function
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
       }
-    })
+    }
+  }, [loadAkten])
 
-    const results = await Promise.all(imagePromises)
-    const imageMap: {[akteId: number]: string} = {}
-    
-    results.forEach(result => {
-      if (result) {
-        imageMap[result.akteId] = result.filename
-      }
+  // Memoized Filtering Logic - verhindert unnötige Re-Renders
+  const filteredAkten = useMemo(() => {
+    return akten.filter(akte => {
+      const matchesSearch = 
+        akte.kunde.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        akte.kennzeichen.toLowerCase().includes(searchTerm.toLowerCase())
+      
+      const matchesStatus = statusFilter === 'alle' || akte.status === statusFilter
+      
+      return matchesSearch && matchesStatus
     })
-    
-    setAktenImages(imageMap)
-  }
-
-  // Filtering Logic
-  const filteredAkten = akten.filter(akte => {
-    const matchesSearch = 
-      akte.kunde.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      akte.kennzeichen.toLowerCase().includes(searchTerm.toLowerCase())
-    
-    const matchesStatus = statusFilter === 'alle' || akte.status === statusFilter
-    
-    return matchesSearch && matchesStatus
-  })
+  }, [akten, searchTerm, statusFilter])
 
   // Status Badge Styling
   const getStatusBadge = (status: string) => {
@@ -130,18 +155,18 @@ export default function Dashboard() {
     }
   }
 
-  // Actions
-  const handleNeueAkte = () => {
+  // Memoized Actions - verhindert unnötige Re-Renders
+  const handleNeueAkte = useCallback(() => {
     navigate('/akte-neu')
-  }
+  }, [navigate])
 
-  const handleAkteBearbeiten = (akteId: number) => {
+  const handleAkteBearbeiten = useCallback((akteId: number) => {
     navigate(`/akte-bearbeiten/${akteId}`)
-  }
+  }, [navigate])
 
-  const handleAkteAnzeigen = (akteId: number) => {
+  const handleAkteAnzeigen = useCallback((akteId: number) => {
     navigate(`/akte-anzeigen/${akteId}`)
-  }
+  }, [navigate])
 
   const handleAkteLoeschen = async (akteId: number) => {
     if (window.confirm('Möchten Sie diese Akte wirklich löschen?')) {
@@ -165,10 +190,8 @@ export default function Dashboard() {
   // Bild-URL generieren
   const getImageUrl = (akte: Akte) => {
     const filename = aktenImages[akte.id]
-    console.log('Akte:', akte.id, 'filename from state:', filename) // DEBUG
     if (!filename) return null
     const url = `${API_BASE}/public/akte_bilder/akte_${akte.id}/${filename}`
-    console.log('Generated URL:', url) // DEBUG
     return url
   }
 

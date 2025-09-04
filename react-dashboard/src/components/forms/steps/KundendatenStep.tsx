@@ -374,7 +374,7 @@ export default function KundendatenStep({ data, onUpdate, showValidation = false
       }
 
       const responseText = await response.text()
-      console.log('Z@Online RAW Response:', responseText)
+      // Z@Online response received
       const parser = new DOMParser()
       const xmlDoc = parser.parseFromString(responseText, 'text/xml')
 
@@ -387,7 +387,7 @@ export default function KundendatenStep({ data, onUpdate, showValidation = false
         insurancePOTelephoneNo: xmlDoc.getElementsByTagName('InsurancePOTelephoneNo')[0]?.textContent || ''
       }
 
-      console.log('Z@Online PARSED Response:', parsedResponse) // WICHTIGER DEBUG
+      // Z@Online response parsed successfully
 
       return parsedResponse
     } catch (error) {

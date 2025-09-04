@@ -6,15 +6,134 @@ const path = require('path');
 const fs = require('fs');
 const { jsPDF } = require('jspdf');
 const { PDFDocument } = require('pdf-lib');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const { body, param, validationResult } = require('express-validator');
 require('dotenv').config();
 
 const app = express();
 
-// CORS für lokale Entwicklung (temporär offener für Debugging)
+// Enhanced Security Headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      scriptSrc: ["'self'"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+      frameSrc: ["'none'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      workerSrc: ["'self'"],
+      childSrc: ["'none'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"],
+      baseUri: ["'self'"],
+      manifestSrc: ["'self'"]
+    }
+  },
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: { policy: 'same-origin' },
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  dnsPrefetchControl: { allow: false },
+  frameguard: { action: 'deny' },
+  hidePoweredBy: true,
+  hsts: {
+    maxAge: 31536000, // 1 year
+    includeSubDomains: true,
+    preload: true
+  },
+  ieNoOpen: true,
+  noSniff: true,
+  originAgentCluster: true,
+  permittedCrossDomainPolicies: false,
+  referrerPolicy: { policy: 'no-referrer' },
+  xssFilter: true
+}));
+
+// Additional security headers
+app.use((req, res, next) => {
+  // Hide server information
+  res.removeHeader('X-Powered-By');
+  res.setHeader('Server', 'SecureServer/1.0');
+  
+  // Additional security headers
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  
+  next();
+});
+
+// Rate Limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 Minuten
+  max: 100, // Max 100 requests pro IP
+  message: {
+    error: 'Zu viele Anfragen von dieser IP, bitte später versuchen.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const strictLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10, // Nur 10 requests für kritische Endpoints
+  message: {
+    error: 'Zu viele Anfragen für diese Aktion, bitte später versuchen.'
+  }
+});
+
+app.use('/api/', limiter);
+
+// Validation Error Handler
+const handleValidationErrors = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      error: 'Validierungsfehler',
+      details: errors.array()
+    });
+  }
+  next();
+};
+
+// CORS Sicherheitskonfiguration
+const isDevelopment = process.env.NODE_ENV !== 'production'
+const allowedOrigins = isDevelopment 
+  ? ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000']
+  : ['https://inteliexpert.de', 'https://www.inteliexpert.de']
+
 app.use(cors({
-  origin: '*',
+  origin: function (origin, callback) {
+    // In development, allow localhost origins
+    if (isDevelopment && (!origin || allowedOrigins.includes(origin))) {
+      return callback(null, true);
+    }
+    
+    // In production, strictly validate origin
+    if (!isDevelopment) {
+      if (!origin) {
+        return callback(new Error('Origin header ist erforderlich'), false);
+      }
+      
+      if (!allowedOrigins.includes(origin)) {
+        console.warn(`CORS blocked origin: ${origin}`);
+        return callback(new Error('Nicht durch CORS-Policy erlaubt'), false);
+      }
+    }
+    
+    callback(null, true);
+  },
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 200,
+  maxAge: 86400 // Cache preflight requests for 24 hours
 }));
 app.use(express.json());
 app.use('/api/zonline', express.text({ 
@@ -183,12 +302,38 @@ class DATService {
 
 app.use('/public', express.static(path.join(__dirname, '..', 'react-dashboard', 'public')));
 
+// Optimized Database Connection Pool
 const db = mysql.createPool({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
   database: process.env.DB_NAME,
   user: process.env.DB_USER,
   password: process.env.DB_PASS,
+  connectionLimit: 20, // Max 20 gleichzeitige Verbindungen
+  acquireTimeout: 60000, // 60s timeout für neue Verbindungen
+  timeout: 60000, // 60s query timeout
+  reconnect: true,
+  charset: 'utf8mb4',
+  timezone: 'Z',
+  queueLimit: 0,
+  dateStrings: true,
+  // Weitere Optimierungen
+  supportBigNumbers: true,
+  bigNumberStrings: true,
+  multipleStatements: false, // Sicherheit
+  typeCast: true
+});
+
+// Connection Pool Event Handlers
+db.on('connection', function (connection) {
+  console.log('DB Connection established as id ' + connection.threadId);
+});
+
+db.on('error', function(err) {
+  console.error('Database error: ', err);
+  if(err.code === 'PROTOCOL_CONNECTION_LOST') {
+    console.log('Database connection lost, attempting to reconnect...');
+  }
 });
 
 const storage = multer.diskStorage({
@@ -209,18 +354,107 @@ const storage = multer.diskStorage({
   }
 });
 
+// Enhanced file upload security
 const upload = multer({ 
   storage: storage,
   limits: {
-    fileSize: 5 * 1024 * 1024
+    fileSize: 5 * 1024 * 1024, // 5MB
+    files: 10 // Max 10 files per request
   },
   fileFilter: function (req, file, cb) {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Nur Bilddateien sind erlaubt!'), false);
+    // Check MIME type
+    const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    
+    if (!allowedMimes.includes(file.mimetype)) {
+      return cb(new Error('Nur JPEG, PNG, GIF und WebP Dateien sind erlaubt!'), false);
     }
+    
+    // Check file extension
+    const allowedExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    
+    if (!allowedExts.includes(ext)) {
+      return cb(new Error('Unerlaubte Dateiendung!'), false);
+    }
+    
+    // Additional security: Check for null bytes (security bypass attempt)
+    if (file.originalname.includes('\0')) {
+      return cb(new Error('Ungültiger Dateiname!'), false);
+    }
+    
+    cb(null, true);
   }
+});
+
+// Authentication middleware using Clerk
+const authenticateUser = async (req, res, next) => {
+  try {
+    // Skip auth for health check
+    if (req.path === '/api/health') {
+      return next();
+    }
+
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ 
+        error: 'Authentifizierung erforderlich',
+        code: 'UNAUTHORIZED' 
+      });
+    }
+
+    const token = authHeader.substring(7);
+    
+    // Validate Clerk JWT token
+    if (!token || token.length < 10) {
+      return res.status(401).json({ 
+        error: 'Ungültiger Token',
+        code: 'INVALID_TOKEN'
+      });
+    }
+
+    // For development/testing, accept a simple check
+    // In production, this should validate the actual Clerk JWT
+    if (token === 'development-token' && process.env.NODE_ENV === 'development') {
+      req.userId = 'dev-user';
+      return next();
+    }
+
+    // TODO: Add proper Clerk JWT validation here
+    // const payload = jwt.verify(token, process.env.CLERK_SECRET_KEY);
+    // req.userId = payload.sub;
+    
+    // For now, reject all requests without proper setup
+    return res.status(401).json({ 
+      error: 'Authentication setup required',
+      code: 'AUTH_NOT_CONFIGURED'
+    });
+    
+  } catch (error) {
+    console.error('Authentication error:', error.message);
+    return res.status(401).json({ 
+      error: 'Authentifizierung fehlgeschlagen',
+      code: 'AUTH_ERROR'
+    });
+  }
+};
+
+// Input validation middleware
+const validateAkteInput = [
+  body('kunde').trim().isLength({ min: 1, max: 100 }).escape().withMessage('Kunde ist erforderlich (max. 100 Zeichen)'),
+  body('kennzeichen').trim().isLength({ min: 2, max: 12 }).matches(/^[A-Z0-9\-\s]+$/i).withMessage('Ungültiges Kennzeichen'),
+  body('schadenort').trim().isLength({ min: 1, max: 200 }).escape().withMessage('Schadenort ist erforderlich'),
+  body('adresse1').optional().trim().isLength({ max: 200 }).escape(),
+  body('adresse2').optional().trim().isLength({ max: 200 }).escape(),
+  body('schadentag').optional().isISO8601().withMessage('Ungültiges Datum'),
+  body('versicherungsnummer').optional().trim().isLength({ max: 50 }).escape(),
+  body('vin').optional().trim().isLength({ min: 0, max: 17 }).matches(/^[A-HJ-NPR-Z0-9]*$/i).withMessage('Ungültige VIN'),
+];
+
+// Apply authentication to all /api/* routes except health check
+app.use('/api', authenticateUser);
+
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
 app.get('/api/akten', async (req, res) => {
@@ -246,7 +480,7 @@ app.get('/api/akten', async (req, res) => {
   }
 })
 
-app.post('/api/akten', async (req, res) => {
+app.post('/api/akten', validateAkteInput, handleValidationErrors, async (req, res) => {
   try {
     const data = req.body
     
@@ -1216,6 +1450,50 @@ app.get('/api/health', async (req, res) => {
   } catch (error) {
     healthStatus.status = 'ERROR';
     res.status(503).json(healthStatus);
+  }
+});
+
+// Batch Image Loading - löst N+1 Problem
+app.post('/api/akten/images/batch', [
+  body('akteIds').isArray({ min: 1, max: 50 }).withMessage('akteIds muss Array mit 1-50 IDs sein'),
+  body('akteIds.*').isInt({ min: 1 }).withMessage('Alle akteIds müssen positive Integers sein'),
+  handleValidationErrors
+], async (req, res) => {
+  try {
+    const { akteIds } = req.body;
+    
+    // Single optimized query with proper prepared statement
+    const placeholders = akteIds.map(() => '?').join(',');
+    const [rows] = await db.execute(
+      `SELECT ab1.akte_id, ab1.filename, ab1.upload_date 
+       FROM akte_bilder ab1
+       INNER JOIN (
+         SELECT akte_id, MIN(upload_date) as min_date 
+         FROM akte_bilder 
+         WHERE akte_id IN (${placeholders})
+         GROUP BY akte_id
+       ) ab2 ON ab1.akte_id = ab2.akte_id AND ab1.upload_date = ab2.min_date
+       ORDER BY ab1.akte_id`,
+      akteIds
+    );
+    
+    // Resultate zu Map umwandeln
+    const imageMap = rows.reduce((acc, row) => {
+      acc[row.akte_id] = row.filename;
+      return acc;
+    }, {});
+    
+    res.json({ 
+      success: true, 
+      images: imageMap,
+      count: rows.length
+    });
+  } catch (error) {
+    console.error('Batch image loading error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Fehler beim Laden der Bilder-Batch'
+    });
   }
 });
 
