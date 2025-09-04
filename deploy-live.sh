@@ -23,6 +23,19 @@ cleanup() {
 trap cleanup ERR
 
 # =====================================
+# ENVIRONMENT SETUP
+# =====================================
+echo -e "${BLUE}⚙️  Setting up environment...${NC}"
+
+# Umgebungsvariablen setzen (für Plesk Server)
+export BUN_INSTALL="$HOME/.bun"
+export PATH="$BUN_INSTALL/bin:$PATH"
+export PATH=$PATH:/opt/plesk/node/22/bin
+export NODE_ENV=production
+
+echo -e "${GREEN}✅ Environment configured${NC}"
+
+# =====================================
 # SCHRITT 1: GIT PULL
 # =====================================
 echo -e "\n${BLUE}📥 SCHRITT 1: Aktualisiere Code...${NC}"
@@ -61,11 +74,22 @@ if [ package.json -nt node_modules/.bin/vite ] 2>/dev/null || [ ! -d "node_modul
     bun install --silent
 fi
 
+# .env Setup (wie in deinem Script)
+if [ -f ".env.local" ]; then
+    echo -e "${YELLOW}📋 Kopiere .env.local zu .env${NC}"
+    cp .env.local .env
+fi
+
 # Production Build
 echo -e "${YELLOW}🔨 Erstelle Production Build...${NC}"
 bun run build
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Frontend Build erfolgreich${NC}"
+    
+    # Build-Dateien ins Hauptverzeichnis kopieren (wie in deinem Script)
+    echo -e "${YELLOW}📂 Kopiere Build ins Hauptverzeichnis...${NC}"
+    cp -r dist/* ../
+    echo -e "${GREEN}✅ Build-Dateien kopiert${NC}"
 else
     echo -e "${RED}❌ Frontend Build fehlgeschlagen${NC}"
     exit 1
@@ -77,7 +101,18 @@ fi
 echo -e "\n${BLUE}🔄 SCHRITT 4: Starte Backend neu...${NC}"
 cd ../api-server
 
-# Prüfe ob PM2 installiert ist
+# Prüfe ob PM2 installiert ist, wenn nicht -> installieren
+if ! command -v pm2 >/dev/null 2>&1; then
+    echo -e "${YELLOW}📦 PM2 nicht gefunden - installiere PM2...${NC}"
+    npm install -g pm2
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✅ PM2 erfolgreich installiert${NC}"
+    else
+        echo -e "${RED}❌ PM2 Installation fehlgeschlagen - nutze Fallback${NC}"
+    fi
+fi
+
+# Nutze PM2 (jetzt definitiv vorhanden oder Fallback)
 if command -v pm2 >/dev/null 2>&1; then
     echo -e "${YELLOW}🔄 Nutze PM2...${NC}"
     
@@ -85,10 +120,37 @@ if command -v pm2 >/dev/null 2>&1; then
     pm2 delete dashboard-api 2>/dev/null || true
     
     # Starte neue Instanz
-    NODE_ENV=production pm2 start server.js --name "dashboard-api" --time
+    NODE_ENV=production pm2 start server.js --name "dashboard-api" --time --log api.log
     pm2 save
     
     echo -e "${GREEN}✅ Backend mit PM2 gestartet${NC}"
+    
+elif [ -f "api.pid" ]; then
+    echo -e "${YELLOW}🔄 Nutze PID-basierte Verwaltung (wie dein Script)...${NC}"
+    
+    # Stoppe alte Instanz
+    if [ -f "api.pid" ]; then
+        OLD_PID=$(cat api.pid)
+        if ps -p $OLD_PID > /dev/null 2>&1; then
+            kill $OLD_PID
+            echo -e "${GREEN}✅ Alter Server gestoppt (PID: $OLD_PID)${NC}"
+        fi
+        rm -f api.pid
+    fi
+    
+    # Starte neue Instanz (wie in deinem Script)
+    echo -e "${YELLOW}🚀 Starte API Server...${NC}"
+    nohup /opt/plesk/node/22/bin/node server.js > api.log 2>&1 &
+    echo $! > api.pid
+    
+    # Kurz warten und prüfen
+    sleep 2
+    if ps -p $(cat api.pid) > /dev/null 2>&1; then
+        echo -e "${GREEN}✅ Backend gestartet (PID: $(cat api.pid))${NC}"
+    else
+        echo -e "${RED}❌ Backend start fehlgeschlagen${NC}"
+        exit 1
+    fi
     
 elif [ -f "server.pid" ]; then
     echo -e "${YELLOW}🔄 Stoppe alten Server...${NC}"
@@ -182,17 +244,26 @@ echo -e "\n${GREEN}🎉 DEPLOYMENT ERFOLGREICH!${NC}"
 echo "=================================="
 echo -e "${BLUE}📊 Status:${NC}"
 
-# Zeige PM2 Status falls verfügbar
+# Zeige Status
 if command -v pm2 >/dev/null 2>&1; then
+    echo -e "${BLUE}📊 PM2 Status:${NC}"
     pm2 list dashboard-api
+    echo -e "${BLUE}📋 PM2 Logs:${NC} pm2 logs dashboard-api"
 else
-    echo -e "Backend PID: $(cat api-server/server.pid 2>/dev/null || echo 'Nicht gefunden')"
+    # Fallback zu PID-System
+    PID_FILE="api-server/api.pid"
+    if [ -f "$PID_FILE" ]; then
+        echo -e "Backend PID: $(cat $PID_FILE 2>/dev/null || echo 'Nicht gefunden')"
+    else
+        echo -e "Backend PID: $(cat api-server/server.pid 2>/dev/null || echo 'Nicht gefunden')"
+    fi
 fi
 
 echo ""
-echo -e "${BLUE}📁 Frontend:${NC} react-dashboard/dist/"
+echo -e "${BLUE}📁 Frontend:${NC} Kopiert ins Hauptverzeichnis"
+echo -e "${BLUE}🌐 Website:${NC} https://inteliexpert.de"
 echo -e "${BLUE}🌐 API:${NC} http://localhost:3001"
-echo -e "${BLUE}📋 Logs:${NC} tail -f server.log"
+echo -e "${BLUE}📋 Logs:${NC} tail -f api-server/api.log"
 echo ""
 echo -e "${YELLOW}🔧 Bei Problemen:${NC}"
 echo -e "  • Logs prüfen: tail -f server.log"
