@@ -101,14 +101,20 @@ fi
 echo -e "\n${BLUE}🔄 SCHRITT 4: Starte Backend neu...${NC}"
 cd ../api-server
 
-# Prüfe ob PM2 installiert ist, wenn nicht -> installieren
+# Prüfe ob PM2 installiert ist, wenn nicht -> versuche lokale Installation
 if ! command -v pm2 >/dev/null 2>&1; then
-    echo -e "${YELLOW}📦 PM2 nicht gefunden - installiere PM2...${NC}"
-    npm install -g pm2
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}✅ PM2 erfolgreich installiert${NC}"
+    echo -e "${YELLOW}📦 PM2 nicht gefunden - versuche lokale Installation...${NC}"
+    
+    # Versuche PM2 lokal zu installieren
+    npm install pm2 --save-dev 2>/dev/null
+    
+    # Prüfe ob lokale Installation funktioniert hat
+    if [ -f "node_modules/.bin/pm2" ]; then
+        echo -e "${GREEN}✅ PM2 lokal installiert${NC}"
+        # PM2 Pfad temporär hinzufügen
+        export PATH="./node_modules/.bin:$PATH"
     else
-        echo -e "${RED}❌ PM2 Installation fehlgeschlagen - nutze Fallback${NC}"
+        echo -e "${YELLOW}ℹ️  PM2 Installation nicht möglich (Shared Hosting) - nutze PID-System${NC}"
     fi
 fi
 
