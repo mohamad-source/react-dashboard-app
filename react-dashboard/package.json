@@ -33,6 +33,7 @@
     "zod": "^3.25.28"
   },
   "devDependencies": {
+    "terser": "^5.31.0",
     "@biomejs/biome": "1.9.4",
     "@eslint/js": "^9.27.0",
     "@types/node": "^22.15.21",
