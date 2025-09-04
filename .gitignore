@@ -4,12 +4,17 @@ api-server/node_modules/
 
 # Environment files
 .env
-.env.example
 .env.local
+.env.production
 .env.development.local
 .env.test.local
 .env.production.local
+react-dashboard/.env
+react-dashboard/.env.local
+react-dashboard/.env.production
 api-server/.env
+api-server/.env.local
+api-server/.env.production
 
 # Logs
 logs
@@ -30,13 +35,18 @@ build/
 api.pid
 api-server/bun.lock
 
+# Development files
+api-server/dev-api.log
+api-server/dev-api.pid
+react-dashboard/dev-frontend.log
+react-dashboard/dev-frontend.pid
+
 # Uploads/Generated files
 public/akte_bilder/
 react-dashboard/public/akte_bilder/
 
 # Scripts
-dev.sh
-deployment.sh
+dev-complete.sh
 
 # Editor directories and files
 .vscode/*

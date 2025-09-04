@@ -71,22 +71,19 @@ export default function KalkulationStep({ kundendaten, isAkteSaved, akteId, onKa
         })
     }
 
-    // DAT-Token anfordern
+    // DAT-Token über Backend anfordern (Credentials sind dort sicher gespeichert)
     const getDATToken = (): Promise<string> => {
-        return fetch('https://www.dat.de/AuthorizationManager/service--/endpoint/tokenService', {
+        return fetch(`${import.meta.env.VITE_API_URL}/dat/token`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: new URLSearchParams({
-                payload: JSON.stringify({
-                    action: "generateToken",
-                    customerNumber: "1331332",
-                    user: "kanaoezer",
-                    password: "VcP369ILp99!!"
-                })
-            })
-        }).then(response => response.text())
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Token-Anfrage fehlgeschlagen')
+            return response.json()
+        })
+        .then(data => data.token)
     }
 
     // DAT-System initialisieren

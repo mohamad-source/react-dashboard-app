@@ -80,7 +80,7 @@ export default function KundendatenStep({ data, onUpdate, showValidation = false
 
   // API Configuration für Fahrzeugschein Scanner
   const API_URL = 'https://api.fahrzeugschein-scanner.de/'
-  const API_KEY = '9c97565c-84ed-47ee-b597-981e0c4905c9'
+  const API_KEY = import.meta.env.VITE_FAHRZEUGSCHEIN_API_KEY || ''
 
   // PFLICHTFELDER DEFINITION
   const requiredFields: (keyof KundendatenData)[] = [

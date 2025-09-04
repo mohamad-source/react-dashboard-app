@@ -9,7 +9,13 @@ const { PDFDocument } = require('pdf-lib');
 require('dotenv').config();
 
 const app = express();
-app.use(cors());
+
+// CORS für lokale Entwicklung (temporär offener für Debugging)
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 app.use('/api/zonline', express.text({ 
   type: ['application/xml', 'text/xml'], 
@@ -19,11 +25,11 @@ app.use(express.text({ type: 'text/plain' }));
 
 class DATService {
   constructor() {
-    this.customerNumber = "1331332"
-    this.user = "kanaoezer"
-    this.password = "VcP369ILp99!!"
-    this.interfacePartnerNumber = "1331332"
-    this.interfacePartnerSignature = "8DA52B0E91D6582DF5584071A9E96B047F421030515181C41F7686604CB9BE8E"
+    this.customerNumber = process.env.DAT_CUSTOMER_NUMBER || ""
+    this.user = process.env.DAT_USER || ""
+    this.password = process.env.DAT_PASSWORD || ""
+    this.interfacePartnerNumber = process.env.DAT_INTERFACE_PARTNER_NUMBER || ""
+    this.interfacePartnerSignature = process.env.DAT_INTERFACE_PARTNER_SIGNATURE || ""
     this.token = null
   }
 
@@ -368,7 +374,7 @@ function generateAbtretungsPDF(akte, formData, signatureBuffer) {
   doc.text('TEL.: 0221 / 55 00 116', 120, 45);
   doc.text('FAX: 0221 / 55 00 115', 120, 50);
   doc.text('WEBSITE: www.autoglasneu.de', 120, 55);
-  doc.text('MAIL: info@autoglasneu.de', 120, 60);
+  doc.text(`MAIL: ${process.env.COMPANY_EMAIL || 'info@autoglasneu.de'}`, 120, 60);
   
   doc.setFontSize(16);
   doc.setTextColor(0, 102, 204);
@@ -1140,7 +1146,9 @@ app.post('/api/zonline', async (req, res) => {
       });
     });
     
-    socket.connect(4027, '185.22.150.228');
+    const zonlinePort = parseInt(process.env.ZONLINE_PORT || '4027');
+    const zonlineServer = process.env.ZONLINE_SERVER || '185.22.150.228';
+    socket.connect(zonlinePort, zonlineServer);
     
     const gdvResponse = await tcpPromise;
     
@@ -1158,6 +1166,83 @@ app.post('/api/zonline', async (req, res) => {
   }
 });
 
-app.listen(3001, '0.0.0.0', () => {
-  console.log('API Server running on all interfaces:3001');
+// Health Check Endpoint
+app.get('/health', (req, res) => {
+  const healthCheck = {
+    uptime: process.uptime(),
+    message: 'OK',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    port: process.env.PORT || 3001,
+    memory: {
+      used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024 * 100) / 100,
+      total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024 * 100) / 100
+    }
+  };
+  
+  try {
+    res.status(200).json(healthCheck);
+  } catch (error) {
+    healthCheck.message = error.message;
+    res.status(503).json(healthCheck);
+  }
+});
+
+// API Health Check (mit DB-Test)
+app.get('/api/health', async (req, res) => {
+  const healthStatus = {
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development',
+    services: {}
+  };
+
+  try {
+    // Datenbank Test
+    await new Promise((resolve, reject) => {
+      connection.query('SELECT 1 as test', (err, results) => {
+        if (err) {
+          healthStatus.services.database = { status: 'ERROR', error: err.message };
+          reject(err);
+        } else {
+          healthStatus.services.database = { status: 'OK' };
+          resolve(results);
+        }
+      });
+    });
+
+    res.status(200).json(healthStatus);
+  } catch (error) {
+    healthStatus.status = 'ERROR';
+    res.status(503).json(healthStatus);
+  }
+});
+
+// DAT Token Endpoint - sicherer Proxy für Frontend
+app.post('/api/dat/token', async (req, res) => {
+  try {
+    const datService = new DATService();
+    await datService.authenticate();
+    
+    if (!datService.token) {
+      throw new Error('Token konnte nicht generiert werden');
+    }
+    
+    res.json({ 
+      success: true, 
+      token: datService.token 
+    });
+  } catch (error) {
+    console.error('DAT Token error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Token-Generierung fehlgeschlagen' 
+    });
+  }
+});
+
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`API Server running on all interfaces:${PORT}`);
 });
