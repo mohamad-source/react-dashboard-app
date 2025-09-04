@@ -450,8 +450,8 @@ const validateAkteInput = [
   body('vin').optional().trim().isLength({ min: 0, max: 17 }).matches(/^[A-HJ-NPR-Z0-9]*$/i).withMessage('Ungültige VIN'),
 ];
 
-// Apply authentication to all /api/* routes except health check
-app.use('/api', authenticateUser);
+// Authentication temporarily disabled for development
+// app.use('/api', authenticateUser);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
