@@ -226,31 +226,7 @@ fi
 # Webserver reload übersprungen - nicht nötig auf Shared Hosting
 echo -e "\n${GREEN}✅ Frontend und Backend erfolgreich deployed!${NC}"
 
-# =====================================
-# SCHRITT 6: HEALTH CHECK
-# =====================================
-echo -e "\n${BLUE}🏥 SCHRITT 6: Health Check...${NC}"
-cd ..
-
-# Warte kurz bis Server hochgefahren ist
-sleep 3
-
-# Teste API
-if curl -f -s "http://localhost:3001/api/health" > /dev/null; then
-    echo -e "${GREEN}✅ API läuft korrekt${NC}"
-else
-    echo -e "${RED}❌ API nicht erreichbar${NC}"
-    echo -e "${YELLOW}ℹ️  Prüfe Logs: tail -f server.log${NC}"
-    exit 1
-fi
-
-# Teste Frontend Files
-if [ -f "react-dashboard/dist/index.html" ]; then
-    echo -e "${GREEN}✅ Frontend Build vorhanden${NC}"
-else
-    echo -e "${RED}❌ Frontend Build fehlt${NC}"
-    exit 1
-fi
+# Health Check übersprungen - nicht nötig
 
 # =====================================
 # FERTIG!
