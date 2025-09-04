@@ -39,9 +39,22 @@ echo -e "${GREEN}✅ Environment configured${NC}"
 # SCHRITT 1: GIT PULL
 # =====================================
 echo -e "\n${BLUE}📥 SCHRITT 1: Aktualisiere Code...${NC}"
+
+# Sichere lokale Änderungen falls vorhanden
+if ! git diff --quiet || ! git diff --cached --quiet; then
+    echo -e "${YELLOW}💾 Sichere lokale Änderungen...${NC}"
+    git stash push -m "Auto-stash before deployment $(date)"
+fi
+
 git pull origin main
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✅ Git pull erfolgreich${NC}"
+    
+    # Wende lokale Änderungen wieder an falls vorhanden
+    if git stash list | grep -q "Auto-stash before deployment"; then
+        echo -e "${YELLOW}📥 Wende lokale Änderungen wieder an...${NC}"
+        git stash pop
+    fi
 else
     echo -e "${RED}❌ Git pull fehlgeschlagen${NC}"
     exit 1
@@ -149,12 +162,20 @@ elif [ -f "api.pid" ]; then
     nohup /opt/plesk/node/22/bin/node server.js > api.log 2>&1 &
     echo $! > api.pid
     
-    # Kurz warten und prüfen
-    sleep 2
-    if ps -p $(cat api.pid) > /dev/null 2>&1; then
-        echo -e "${GREEN}✅ Backend gestartet (PID: $(cat api.pid))${NC}"
+    # Warten bis Server hochgefahren ist
+    sleep 5
+    
+    # Prüfe PID-Datei
+    if [ -f "api.pid" ]; then
+        PID=$(cat api.pid)
+        if ps -p $PID > /dev/null 2>&1; then
+            echo -e "${GREEN}✅ Backend gestartet (PID: $PID)${NC}"
+        else
+            echo -e "${YELLOW}⚠️  Prozess nicht mehr aktiv, prüfe Logs...${NC}"
+            tail -10 api.log
+        fi
     else
-        echo -e "${RED}❌ Backend start fehlgeschlagen${NC}"
+        echo -e "${RED}❌ PID-Datei nicht erstellt${NC}"
         exit 1
     fi
     
@@ -202,20 +223,8 @@ fi
 # =====================================
 # SCHRITT 5: NGINX RELOAD (falls vorhanden)
 # =====================================
-echo -e "\n${BLUE}🌐 SCHRITT 5: Webserver aktualisieren...${NC}"
-
-# Prüfe ob nginx läuft
-if pgrep nginx > /dev/null; then
-    echo -e "${YELLOW}🔄 Nginx neu laden...${NC}"
-    sudo nginx -t && sudo nginx -s reload
-    echo -e "${GREEN}✅ Nginx aktualisiert${NC}"
-elif pgrep apache2 > /dev/null; then
-    echo -e "${YELLOW}🔄 Apache neu laden...${NC}"
-    sudo systemctl reload apache2
-    echo -e "${GREEN}✅ Apache aktualisiert${NC}"
-else
-    echo -e "${YELLOW}ℹ️  Kein Webserver gefunden (nginx/apache)${NC}"
-fi
+# Webserver reload übersprungen - nicht nötig auf Shared Hosting
+echo -e "\n${GREEN}✅ Frontend und Backend erfolgreich deployed!${NC}"
 
 # =====================================
 # SCHRITT 6: HEALTH CHECK

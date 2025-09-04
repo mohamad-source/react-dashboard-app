@@ -106,7 +106,7 @@ const handleValidationErrors = (req, res, next) => {
 const isDevelopment = process.env.NODE_ENV !== 'production'
 const allowedOrigins = isDevelopment 
   ? ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000']
-  : ['https://inteliexpert.de', 'https://www.inteliexpert.de']
+  : ['https://inteliexpert.de', 'https://www.inteliexpert.de', 'http://localhost:3001']
 
 app.use(cors({
   origin: function (origin, callback) {
