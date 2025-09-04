@@ -105,8 +105,8 @@ export default function Dashboard() {
       
     } catch (err) {
       // Don't set error if request was cancelled
-      if (err.name !== 'AbortError') {
-        setError('Fehler beim Laden der Akten: ' + (err as Error).message)
+      if (err instanceof Error && err.name !== 'AbortError') {
+        setError('Fehler beim Laden der Akten: ' + err.message)
       }
     } finally {
       if (!abortControllerRef.current?.signal.aborted) {
