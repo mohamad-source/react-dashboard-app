@@ -22,9 +22,8 @@ cd react-dashboard
 
 # Stelle sicher, dass .env.production existiert
 if [ ! -f ".env.production" ]; then
-    echo "❌ .env.production nicht gefunden!"
-    echo "📋 Kopiere .env.production.example zu .env.production und fülle die echten Produktionswerte aus"
-    exit 1
+    echo "📋 Kopiere .env.production.example zu .env.production..."
+    cp .env.production.example .env.production
 fi
 
 # Clean build
@@ -54,12 +53,6 @@ rm -f package-lock.json
 # Fresh installation
 echo "📦 Fresh installation for API server..."
 npm install
-
-# Stelle sicher, dass .env.production existiert
-if [ ! -f ".env.production" ]; then
-    echo "📋 Kopiere .env.production.example zu .env.production..."
-    cp react-dashboard/.env.production.example react-dashboard/.env.production
-fi
 
 # Create logs directory if it doesn't exist
 mkdir -p logs
