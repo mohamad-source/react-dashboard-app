@@ -1,0 +1,203 @@
+// src/lib/aktenApi.ts - MySQL API Service mit Clerk Authentication
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api"
+
+// Warnung: Diese API-Datei kann kein Token holen, da sie außerhalb von React Components ist
+// Für korrekte Authentication sollte useAktenApi Hook verwendet werden
+
+// Helper für authentifizierte API-Aufrufe
+const authenticatedFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
+  try {
+    console.log('=== Making request to:', url)
+    console.log('=== Options:', options)
+    console.log('=== Headers before:', options.headers)
+    
+    const response = await fetch(url, options);
+    
+    console.log('=== Response status:', response.status)
+    const responseText = await response.clone().text()
+    console.log('=== Response body:', responseText)
+    
+    return response;
+  } catch (error) {
+    console.error('API error:', error);
+    throw error;
+  }
+};
+
+export const aktenApi = {
+  // Alle Akten laden
+  async getAkten() {
+    try {
+      const response = await authenticatedFetch(`${API_URL}/akten`)
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`HTTP ${response.status}: ${errorText}`)
+      }
+      return await response.json()
+    } catch (error) {
+      console.error('Error loading akten:', error)
+      throw error
+    }
+  },
+
+  // Einzelne Akte laden
+  async getAkte(id: number) {
+    try {
+      const response = await authenticatedFetch(`${API_URL}/akten/${id}`)
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`HTTP ${response.status}: ${errorText}`)
+      }
+      return await response.json()
+    } catch (error) {
+      console.error('Error loading akte:', error)
+      throw error
+    }
+  },
+
+  // Neue Akte erstellen
+  async createAkte(data: { 
+    kunde: string
+    kennzeichen: string
+    schadenort: string
+    status?: string 
+  }) {
+    try {
+      const response = await authenticatedFetch(`${API_URL}/akten`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      })
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`HTTP ${response.status}: ${errorText}`)
+      }
+      
+      return await response.json()
+    } catch (error) {
+      console.error('Error creating akte:', error)
+      throw error
+    }
+  },
+
+  // Akte aktualisieren
+  async updateAkte(id: number, data: Partial<{
+    kunde: string
+    kennzeichen: string
+    schadenort: string
+    status: string
+  }>) {
+    try {
+      const response = await authenticatedFetch(`${API_URL}/akten/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      })
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`HTTP ${response.status}: ${errorText}`)
+      }
+      
+      return await response.json()
+    } catch (error) {
+      console.error('Error updating akte:', error)
+      throw error
+    }
+  },
+
+  // Akte löschen
+  async deleteAkte(id: number) {
+    try {
+      const response = await authenticatedFetch(`${API_URL}/akten/${id}`, {
+        method: 'DELETE'
+      })
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`HTTP ${response.status}: ${errorText}`)
+      }
+      
+      return await response.json()
+    } catch (error) {
+      console.error('Error deleting akte:', error)
+      throw error
+    }
+  },
+
+  // Akten suchen/filtern
+  async searchAkten(query: {
+    search?: string
+    status?: string
+  }) {
+    try {
+      const params = new URLSearchParams()
+      
+      if (query.search) params.append('search', query.search)
+      if (query.status && query.status !== 'alle') params.append('status', query.status)
+      
+      const queryString = params.toString()
+      const url = queryString ? `${API_URL}/akten/search?${queryString}` : `${API_URL}/akten`
+      
+      const response = await authenticatedFetch(url)
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`HTTP ${response.status}: ${errorText}`)
+      }
+      
+      return await response.json()
+    } catch (error) {
+      console.error('Error searching akten:', error)
+      throw error
+    }
+  },
+
+  // Akten-Statistiken laden
+  async getAktenStats() {
+    try {
+      const response = await authenticatedFetch(`${API_URL}/akten/stats`)
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`HTTP ${response.status}: ${errorText}`)
+      }
+      return await response.json()
+    } catch (error) {
+      console.error('Error loading stats:', error)
+      throw error
+    }
+  },
+
+  // Abtretung speichern
+  async saveAbtretung(akteId: number, signature: string, formData: any) {
+    try {
+      const response = await authenticatedFetch(`${API_URL}/akten/${akteId}/abtretung`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          signature,
+          formData
+        })
+      })
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`HTTP ${response.status}: ${errorText}`)
+      }
+      
+      return await response.json()
+    } catch (error) {
+      console.error('Error saving abtretung:', error)
+      throw error
+    }
+  }
+}
+
+export default aktenApi

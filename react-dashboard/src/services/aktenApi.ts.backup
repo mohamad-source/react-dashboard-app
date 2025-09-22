@@ -1,0 +1,263 @@
+// src/services/aktenApi.ts
+// API Service für Akten - Frontend only
+
+import { 
+  Akte, 
+  AkteListItem, 
+  AkteStats, 
+  CreateAkteRequest, 
+  UpdateAkteRequest,
+  AkteFormData 
+} from '../types/Akte'
+
+// API Base URL - hier würdest du deine externe API URL eintragen
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://your-api.com/api'
+
+// Helper für API Requests
+class AktenApiService {
+  private async request<T>(
+    endpoint: string, 
+    options: RequestInit = {}
+  ): Promise<T> {
+    const url = `${API_BASE_URL}${endpoint}`
+    
+    const defaultHeaders = {
+      'Content-Type': 'application/json',
+    }
+
+    // Clerk Auth Token hinzufügen (falls du Clerk nutzt)
+    const authToken = await this.getAuthToken()
+    if (authToken) {
+      defaultHeaders['Authorization'] = `Bearer ${authToken}`
+    }
+
+    const config: RequestInit = {
+      ...options,
+      headers: {
+        ...defaultHeaders,
+        ...options.headers,
+      },
+    }
+
+    try {
+      const response = await fetch(url, config)
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+
+      return await response.json()
+    } catch (error) {
+      console.error('API Request failed:', error)
+      throw error
+    }
+  }
+
+  private async getAuthToken(): Promise<string | null> {
+    // Hier würdest du das Clerk Token holen
+    // Beispiel mit Clerk:
+    // const { getToken } = useAuth() // Das geht nur in React Components
+    // return await getToken()
+    
+    // Für jetzt: null (du müsstest das Token anders übergeben)
+    return null
+  }
+
+  // CRUD Operations
+
+  /**
+   * Alle Akten des aktuellen Users laden
+   */
+  async getAkten(): Promise<AkteListItem[]> {
+    return this.request<AkteListItem[]>('/akten')
+  }
+
+  /**
+   * Einzelne Akte laden
+   */
+  async getAkte(id: string): Promise<Akte> {
+    return this.request<Akte>(`/akten/${id}`)
+  }
+
+  /**
+   * Neue Akte erstellen
+   */
+  async createAkte(data: AkteFormData): Promise<Akte> {
+    // Form Data in API Format konvertieren
+    const apiData = this.convertFormDataToApiFormat(data)
+    
+    return this.request<Akte>('/akten', {
+      method: 'POST',
+      body: JSON.stringify(apiData),
+    })
+  }
+
+  /**
+   * Akte aktualisieren
+   */
+  async updateAkte(id: string, data: Partial<AkteFormData>): Promise<Akte> {
+    const apiData = this.convertFormDataToApiFormat(data)
+    
+    return this.request<Akte>(`/akten/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(apiData),
+    })
+  }
+
+  /**
+   * Akte löschen
+   */
+  async deleteAkte(id: string): Promise<void> {
+    return this.request<void>(`/akten/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  /**
+   * Akten-Statistiken laden
+   */
+  async getAktenStats(): Promise<AkteStats> {
+    return this.request<AkteStats>('/akten/stats')
+  }
+
+  /**
+   * Akten suchen/filtern
+   */
+  async searchAkten(query: {
+    search?: string
+    status?: string
+    fahrzeugtyp?: string
+    dateFrom?: string
+    dateTo?: string
+  }): Promise<AkteListItem[]> {
+    const params = new URLSearchParams()
+    
+    Object.entries(query).forEach(([key, value]) => {
+      if (value) params.append(key, value)
+    })
+
+    const queryString = params.toString()
+    const endpoint = queryString ? `/akten/search?${queryString}` : '/akten'
+    
+    return this.request<AkteListItem[]>(endpoint)
+  }
+
+  /**
+   * Akte Status ändern
+   */
+  async updateAkteStatus(id: string, status: Akte['status']): Promise<Akte> {
+    return this.request<Akte>(`/akten/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    })
+  }
+
+  /**
+   * Dokument hochladen
+   */
+  async uploadDocument(akteId: string, file: File, type: 'fahrzeugschein' | 'schadenbilder' | 'dokumente'): Promise<{ url: string }> {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('type', type)
+
+    // Für File Upload ohne JSON Content-Type
+    return this.request<{ url: string }>(`/akten/${akteId}/upload`, {
+      method: 'POST',
+      body: formData,
+      headers: {}, // Leere Headers damit FormData Content-Type automatisch gesetzt wird
+    })
+  }
+
+  // Helper Methods
+
+  /**
+   * Form Data in API-kompatibles Format konvertieren
+   */
+  private convertFormDataToApiFormat(formData: Partial<AkteFormData>): any {
+    const apiData: any = {}
+
+    // Kundendaten flach machen
+    if (formData.kundendaten) {
+      Object.assign(apiData, formData.kundendaten)
+    }
+
+    // Andere Bereiche als nested objects
+    if (formData.abtretung) {
+      apiData.abtretung = formData.abtretung
+    }
+
+    if (formData.bilder) {
+      apiData.bilder = formData.bilder
+    }
+
+    if (formData.kalkulation) {
+      apiData.kalkulation = formData.kalkulation
+    }
+
+    if (formData.dokumentation) {
+      apiData.dokumentation = formData.dokumentation
+    }
+
+    return apiData
+  }
+
+  /**
+   * API Data in Form Format konvertieren
+   */
+  convertApiDataToFormFormat(apiData: Akte): AkteFormData {
+    return {
+      kundendaten: {
+        kunde: apiData.kunde || '',
+        fahrzeugtyp: (apiData.fahrzeugtyp as any) || 'PKW',
+        adresse1: apiData.adresse1 || '',
+        adresse2: apiData.adresse2 || '',
+        schadentag: apiData.schadentag || '',
+        schadenort: apiData.schadenort || '',
+        schadennummer: apiData.schadennummer || '',
+        kennzeichen: apiData.kennzeichen || '',
+        versicherungsnummer: apiData.versicherungsnummer || '',
+        selbstbeteiligung: (apiData.selbstbeteiligung as any) || '150',
+        vin: apiData.vin || '',
+        scheibe: apiData.scheibe || 'Frontscheibe',
+        auftragstyp: (apiData.auftragstyp as any) || 'Kostenvoranschlag',
+        vorsteuer_berechtigt: (apiData.vorsteuer_berechtigt as any) || 'Nein'
+      },
+      abtretung: apiData.abtretung || {
+        abtretungserklaerung: '',
+        datum: '',
+        unterschrift: ''
+      },
+      bilder: apiData.bilder || {
+        fahrzeugbilder: [],
+        schadenbilder: [],
+        dokumente: []
+      },
+      kalkulation: apiData.kalkulation || {
+        schadenssumme: 0,
+        selbstbeteiligung: 0,
+        reparaturkosten: 0
+      },
+      dokumentation: apiData.dokumentation || {
+        gutachten: '',
+        polizeibericht: '',
+        notizen: ''
+      }
+    }
+  }
+}
+
+async updateAkte(id, data) {
+  const response = await fetch(`/api/akten/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  })
+  return response.json()
+}
+
+// Singleton Instance
+export const aktenApi = new AktenApiService()
+
+// Keine Demo-Daten - alles kommt aus der echten API/Datenbank!
+
+export default aktenApi

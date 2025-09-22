@@ -1,0 +1,43 @@
+{
+  "name": "easyglas-dashboard",
+  "version": "1.0.0",
+  "description": "EasyGlas Dashboard - Frontend & Backend",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:frontend\"",
+    "dev:api": "cd api-server && npm run dev",
+    "dev:frontend": "cd react-dashboard && npm run dev",
+    "build": "npm run build:api && npm run build:frontend",
+    "build:api": "cd api-server && npm run build",
+    "build:frontend": "cd react-dashboard && npm run build",
+    "start": "concurrently \"npm run start:api\" \"npm run start:frontend\"",
+    "start:api": "cd api-server && npm start",
+    "start:frontend": "cd react-dashboard && npm run preview",
+    "install:all": "npm install && cd api-server && npm install && cd ../react-dashboard && npm install",
+    "test": "npm run test:api && npm run test:frontend",
+    "test:api": "cd api-server && npm test",
+    "test:frontend": "cd react-dashboard && npm test",
+    "production": "NODE_ENV=production npm run start:api",
+    "clean": "rm -rf node_modules api-server/node_modules react-dashboard/node_modules",
+    "reset": "npm run clean && npm run install:all"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "@clerk/clerk-sdk-node": "^4.13.23",
+    "mysql2": "^3.15.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "keywords": [
+    "dashboard",
+    "easyglas",
+    "react",
+    "express",
+    "mysql"
+  ],
+  "author": "EasyGlas Team",
+  "license": "ISC"
+}

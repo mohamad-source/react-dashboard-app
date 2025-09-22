@@ -1,0 +1,90 @@
+# Environment variables
+.env
+.env.local
+.env.production
+.env.development
+*.env
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# Production builds
+dist/
+dist-ssr/
+build/
+*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+api.log
+api.pid
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Testing
+coverage/
+*.lcov
+.nyc_output
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+
+# Uploads (falls sensible Daten)
+uploads/
+public/uploads/
+api-server/uploads/
+
+# PM2
+.pm2/
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Temporary files
+tmp/
+temp/
+.temp/
+.tmp/
+
+# Cache
+.cache/
+.parcel-cache/
+.next/
+.nuxt/
+.vuepress/dist/
+.serverless/
+.fusebox/
+.dynamodb/
+
+# Bundle analyzer
+stats.html
+
+# Credentials - WICHTIG!
+*.pem
+*.key
+*.cert
+*.crt
