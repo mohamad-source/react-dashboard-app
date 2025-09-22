@@ -95,7 +95,7 @@ module.exports = {
       instances: 1,
       autorestart: true,
       watch: false,
-      args: '-s . -l 3000',
+      args: '-s . -p 3000',
       env: {
         NODE_ENV: 'development'
       },
