@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { supabase } from '../../../lib/supabase'
-import { aktenApi } from '../../../lib/aktenApi'
+//import { aktenApi } from '../../../lib/aktenApi'
 import {
   Upload,
   FileText,
