@@ -60,7 +60,6 @@ export default function Dashboard() {
       setError(null)
       
       const data = await aktenApi.getAkten()
-      console.log('Loaded akten data:', data)
       setAkten(data || [])
       
       // Lade erstes Bild für jede Akte
@@ -166,10 +165,8 @@ export default function Dashboard() {
   // Bild-URL generieren
   const getImageUrl = (akte: Akte) => {
     const filename = aktenImages[akte.id]
-    console.log('Akte:', akte.id, 'filename from state:', filename) // DEBUG
     if (!filename) return null
     const url = `${API_BASE}/public/akte_bilder/akte_${akte.id}/${filename}`
-    console.log('Generated URL:', url) // DEBUG
     return url
   }
 

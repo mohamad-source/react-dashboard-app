@@ -155,7 +155,6 @@ export default function AkteForm() {
     const { id } = useParams()
     const aktenApi = useAktenApi()
     const [currentStep, setCurrentStep] = useState(0)
-    console.log('Current step:', currentStep, 'Max steps:', formSteps.length - 1)
     const [isLoading, setIsLoading] = useState(false)
     const [savedAkteId, setSavedAkteId] = useState<number | null>(
         id ? parseInt(id) : null
@@ -283,7 +282,6 @@ export default function AkteForm() {
         }
 
         if (stepId === 'bilder') {
-            console.log('Bilder-Validierung - uploadedImages.length:', uploadedImages.length)
             return uploadedImages.length > 0
         }
 
@@ -336,7 +334,6 @@ export default function AkteForm() {
         modell: string
         telefon: string
     }) => {
-        console.log('Parent erhält Z@Online Daten:', newVersicherungsdaten)
         setVersicherungsdaten(newVersicherungsdaten)
     }
 
@@ -370,10 +367,7 @@ export default function AkteForm() {
 
         setIsLoading(true)
         try {
-            console.log('Lade Akte-Daten für ID:', savedAkteId)
             const akteData = await aktenApi.getAkte(savedAkteId)
-
-            console.log('Geladene Akte-Daten:', akteData)
 
             // Kundendaten aus DB in FormData übertragen
             setFormData(prev => ({
@@ -433,9 +427,7 @@ export default function AkteForm() {
             // Bilder laden (falls API verfügbar)
             try {
                 const bilderData = await aktenApi.getBilder(savedAkteId)
-                console.log('Geladene Bilder:', bilderData)
                 setUploadedImages(bilderData.bilder || [])
-                console.log('uploadedImages State gesetzt auf:', bilderData.bilder?.length || 0)
             } catch (error) {
                 console.warn('Bilder konnten nicht geladen werden:', error)
                 setUploadedImages([])
@@ -513,7 +505,6 @@ export default function AkteForm() {
             try {
                 // Hier würde die komplette Akte finalisiert werden
                 setMessage({ type: 'success', text: 'Akte erfolgreich erstellt und gespeichert!' })
-                console.log('Complete Form Data:', formData)
             } catch (error) {
                 setMessage({ type: 'error', text: 'Fehler beim Speichern: ' + (error as Error).message })
             }

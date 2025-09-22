@@ -45,6 +45,14 @@ cp -r dist/* ../
 echo "🌐 Preparing API server for production..."
 cd ../api-server
 
+# Debug .env
+echo "=== ENV DEBUG ==="
+ls -la .env* 2>/dev/null || echo "Keine .env Dateien"
+if [ -f ".env" ]; then cat .env; fi
+if [ -f "api-server/.env" ]; then echo "api-server/.env:"; cat api-server/.env; fi
+if [ -f "api-server/.env.production" ]; then echo "api-server/.env.production:"; cat api-server/.env.production; fi
+echo "================="
+
 # Clean installation
 echo "🧹 Cleaning API server..."
 rm -rf node_modules
@@ -76,6 +84,7 @@ module.exports = {
       autorestart: true,
       watch: false,
       max_memory_restart: '1G',
+      env_file: '.env.production',
       env: {
         NODE_ENV: 'development',
         PORT: 3001
