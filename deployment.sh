@@ -75,42 +75,46 @@ module.exports = {
       instances: 1,
       autorestart: true,
       watch: false,
+      max_memory_restart: '1G',
       env: {
-        NODE_ENV: 'development'
+        NODE_ENV: 'development',
+        PORT: 3001
       },
       env_production: {
-        NODE_ENV: 'production'
+        NODE_ENV: 'production',
+        PORT: 3001
       },
-      log_file: './api-server/logs/combined.log',
+      error_file: './api-server/logs/err.log',
       out_file: './api-server/logs/out.log',
-      error_file: './api-server/logs/error.log',
+      log_file: './api-server/logs/combined.log',
       time: true,
-      max_memory_restart: '500M',
-      node_args: '--max_old_space_size=512'
+      log_date_format: 'YYYY-MM-DD HH:mm Z',
+      merge_logs: true,
+      max_restarts: 10,
+      min_uptime: '10s'
     },
     {
       name: 'static-server',
-      script: 'serve',
+      script: 'http-server',
       cwd: './',
       instances: 1,
       autorestart: true,
       watch: false,
-      args: '. -p 3000',
-      env: {
-        NODE_ENV: 'development'
-      },
+      args: '. -p 3000 -a 0.0.0.0',
+      max_memory_restart: '200M',
       env_production: {
         NODE_ENV: 'production',
         PORT: 3000
       },
+      error_file: './logs/static-err.log',
+      out_file: './logs/static-out.log',
       log_file: './logs/static-combined.log',
-      out_file: './logs/static-out.log', 
-      error_file: './logs/static-error.log',
       time: true,
-      max_memory_restart: '200M'
+      max_restarts: 10,
+      min_uptime: '10s'
     }
   ]
-}
+};
 EOF
 
 # Install serve globally if not present
