@@ -81,7 +81,7 @@ export default function AktenListe() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'Abgeschlossen':
-        return <Badge className="bg-green-100 text-green-800"><CheckCircle className="w-3 h-3 mr-1" />Abgeschlossen</Badge>
+        return <Badge className="bg-green-100 text-green-800"><CheckCircle className="w-3 h-3 mr-1" />HALLO Abgeschlossen</Badge>
       case 'In Bearbeitung':
         return <Badge className="bg-blue-100 text-blue-800"><Clock className="w-3 h-3 mr-1" />In Bearbeitung</Badge>
       case 'Entwurf':

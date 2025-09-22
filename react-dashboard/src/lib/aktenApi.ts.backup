@@ -8,15 +8,9 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api"
 // Helper für authentifizierte API-Aufrufe
 const authenticatedFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
   try {
-    console.log('=== Making request to:', url)
-    console.log('=== Options:', options)
-    console.log('=== Headers before:', options.headers)
-    
     const response = await fetch(url, options);
     
-    console.log('=== Response status:', response.status)
     const responseText = await response.clone().text()
-    console.log('=== Response body:', responseText)
     
     return response;
   } catch (error) {
