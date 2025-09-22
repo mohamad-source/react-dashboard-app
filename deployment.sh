@@ -95,7 +95,7 @@ module.exports = {
       instances: 1,
       autorestart: true,
       watch: false,
-      args: '-s . -p 3000',
+      args: '. -p 3000',
       env: {
         NODE_ENV: 'development'
       },
@@ -127,6 +127,11 @@ mv ecosystem.config.js ../
 
 # Gehe zurück zum Hauptverzeichnis
 cd ..
+
+if ! command -v http-server &> /dev/null; then
+    echo "📦 Installing http-server globally..."
+    npm install -g http-server
+fi
 
 # Stoppe alle laufenden Apps
 echo "🛑 Stopping existing PM2 processes..."
