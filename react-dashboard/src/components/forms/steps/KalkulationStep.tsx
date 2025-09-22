@@ -161,11 +161,9 @@ export default function KalkulationStep({ kundendaten, isAkteSaved, akteId, onKa
 
     // HAUPT-Initialisierungsfunktion - OHNE useCallback Dependencies
     const initDATSystem = async () => {
-        console.log('initDATSystem called - isInitialized:', isInitializedRef.current)
 
         // Verhindere doppelte Initialisierung
         if (isInitializedRef.current || isLoading) {
-            console.log('Bereits initialisiert oder lädt - Abbruch')
             return
         }
 
@@ -178,7 +176,6 @@ export default function KalkulationStep({ kundendaten, isAkteSaved, akteId, onKa
             await loadDATScripts()
             const token = await getDATToken()
             await initDAT(token)
-            console.log('DAT-System erfolgreich initialisiert')
 
         } catch (err) {
             console.error('DAT-Fehler:', err)
@@ -191,10 +188,6 @@ export default function KalkulationStep({ kundendaten, isAkteSaved, akteId, onKa
 
     // Callback für DAT-System
     const handleDATCallback = useCallback(async (azNumber: string) => {
-        console.log('=== handleDATCallback DEBUG ===')
-        console.log('azNumber:', azNumber)
-        console.log('akteId:', akteId)
-        
         if (!azNumber || !akteId) return
 
         try {
@@ -271,17 +264,13 @@ export default function KalkulationStep({ kundendaten, isAkteSaved, akteId, onKa
 
     // EINMALIGER useEffect für Initialisierung - KEINE Dependencies!
     useEffect(() => {
-        console.log('useEffect triggered - isAkteSaved:', isAkteSaved, 'akteId:', akteId, 'isInitialized:', isInitializedRef.current)
-        
         if (isAkteSaved && akteId && !isInitializedRef.current) {
-            console.log('Initialisiere DAT System - useEffect')
             initDATSystem()
         }
     }, [isAkteSaved, akteId]) // NUR diese beiden Dependencies!
 
     // Reload-Funktion
     const reloadDAT = () => {
-        console.log('Reload DAT triggered')
         setError(null)
         isInitializedRef.current = false
         setTimeout(() => initDATSystem(), 100)

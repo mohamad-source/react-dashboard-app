@@ -234,7 +234,6 @@ export default function KundendatenStep({ data, onUpdate, showValidation = false
         }
 
         if (result.registrationNumber) {
-          console.log('Kennzeichen erkannt, rufe Z@Online API auf...')
           const zonlineResult = await callZOnlineAPI(result.registrationNumber)
           if (zonlineResult && zonlineResult.success && zonlineResult.data.additionalInfo.ResponseCode === '0') {
             const apiData = zonlineResult.data.additionalInfo;
@@ -293,24 +292,6 @@ export default function KundendatenStep({ data, onUpdate, showValidation = false
   const scanFahrzeugschein = async () => {
     if (!selectedFile) return
     await scanFahrzeugscheinAuto(selectedFile)
-  }
-
-  // Test-Daten ausfüllen
-  const fillTestData = () => {
-    onUpdate('kunde', 'Max Mustermann')
-    onUpdate('fahrzeugtyp', 'PKW')
-    onUpdate('adresse1', 'Musterstraße 123')
-    onUpdate('adresse2', '12345 Berlin')
-    onUpdate('schadentag', '2025-01-15')
-    onUpdate('schadenort', 'Hauptstraße 45, Berlin')
-    onUpdate('schadennummer', 'SN-2025-001')
-    onUpdate('kennzeichen', 'B-AB 1234')
-    onUpdate('versicherungsnummer', '123456789')
-    onUpdate('selbstbeteiligung', '300')
-    onUpdate('vin', 'WBAVA31030NL12345')
-    onUpdate('scheibe', 'Frontscheibe')
-    onUpdate('auftragstyp', 'Reparaturauftrag')
-    onUpdate('vorsteuer_berechtigt', 'Nein')
   }
 
   // VIN Validation
@@ -458,14 +439,6 @@ export default function KundendatenStep({ data, onUpdate, showValidation = false
 
           {/* Buttons */}
           <div className="flex gap-4 mt-4">
-            <Button
-              onClick={fillTestData}
-              variant="outline"
-            >
-              <TestTube className="mr-2 h-4 w-4" />
-              Test-Daten
-            </Button>
-
             {/* Fallback Scan Button - nur wenn Datei vorhanden */}
             {selectedFile && (
               <Button

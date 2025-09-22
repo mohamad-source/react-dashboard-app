@@ -80,7 +80,6 @@ export default function BilderStep({ isAkteSaved, akteId, onImagesUpdate }: Bild
                             type: 'image/jpeg',
                             lastModified: Date.now()
                         })
-                        console.log(`${file.name}: ${formatFileSize(file.size)} → ${formatFileSize(compressedFile.size)}`)
                         resolve(compressedFile)
                     } else {
                         resolve(file) // Fallback
@@ -181,12 +180,8 @@ export default function BilderStep({ isAkteSaved, akteId, onImagesUpdate }: Bild
     }
 
     const processFiles = async (files: File[]) => {
-        console.log('processFiles called with files:', files.length)
-        console.log('akteId:', akteId)
-        
         // Filter nur Bilder
         const imageFiles = files.filter(file => file.type.startsWith('image/'))
-        console.log('imageFiles:', imageFiles.length)
 
         if (imageFiles.length === 0) {
             alert('Bitte wählen Sie nur Bilddateien aus (JPG, PNG).')
@@ -201,18 +196,14 @@ export default function BilderStep({ isAkteSaved, akteId, onImagesUpdate }: Bild
             const compressedFiles = await Promise.all(
                 imageFiles.map(async (file) => {
                     if (file.size > 2 * 1024 * 1024) { // Größer als 2MB
-                        console.log(`Komprimiere ${file.name} (${formatFileSize(file.size)})`)
                         return await compressImage(file)
                     }
                     return file
                 })
             )
             
-            console.log('Komprimierung abgeschlossen')
-            
             // Direkt hochladen
             if (compressedFiles.length > 0) {
-                console.log('Starting upload...')
                 uploadFiles(compressedFiles)
             }
         } catch (error) {

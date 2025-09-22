@@ -315,8 +315,6 @@ Besteht jedoch in der Kaskoversicherung des Kunden eine Selbstbeteiligung, verpf
     }
 
     try {
-      console.log('Abtretung wird gespeichert...')
-
       if (!akteId) {
         throw new Error('Keine Akte-ID verfügbar')
       }
@@ -351,7 +349,6 @@ Besteht jedoch in der Kaskoversicherung des Kunden eine Selbstbeteiligung, verpf
             setOriginalData(null)
           }
         })
-        console.log('Abtretung gespeichert:', result)
       } else {
         throw new Error(result.error || 'Speichern fehlgeschlagen')
       }
