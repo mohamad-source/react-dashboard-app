@@ -109,7 +109,7 @@ module.exports = {
       instances: 1,
       autorestart: true,
       watch: false,
-      args: '. -p 3000 -a 0.0.0.0',
+      args: '. -p 3000 -a 0.0.0.0 --spa',
       max_memory_restart: '200M',
       env_production: {
         NODE_ENV: 'production',
