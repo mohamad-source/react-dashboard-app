@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { supabase } from '../../../lib/supabase'
-//import { aktenApi } from '../../../lib/aktenApi'
+import { useAktenApi } from '../../../hooks/useAktenApi'
 import {
   Upload,
   FileText,
@@ -80,6 +80,7 @@ export default function KundendatenStep({ data, onUpdate, showValidation = false
   const [isDragging, setIsDragging] = useState(false)
   const [zonlineData, setZonlineData] = useState<ZOnlineResponse | null>(null)
   const [showZonlineModal, setShowZonlineModal] = useState(false)
+  const aktenApi = useAktenApi();
 
   // API Configuration für Fahrzeugschein Scanner
   const API_URL = import.meta.env.VITE_FAHRZEUGSCHEIN_API_URL || 'https://api.fahrzeugschein-scanner.de/'
@@ -314,20 +315,10 @@ export default function KundendatenStep({ data, onUpdate, showValidation = false
 
   const callZOnlineAPI = async (kennzeichen: string) => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/zonline`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          licenseNumber: kennzeichen,
-          requestor: import.meta.env.VITE_ZONLINE_REQUESTOR || '',
-          password: import.meta.env.VITE_ZONLINE_PASSWORD || ''
-        })
-      });
-
-      const data = await response.json();
-
-      if (data.success && data.data.additionalInfo.ResponseCode === '0') {
-        const apiData = data.data.additionalInfo;
+      const result = await aktenApi.callZOnlineAPI(kennzeichen);
+      
+      if (result.success && result.data.additionalInfo.ResponseCode === '0') {
+        const apiData = result.data.additionalInfo;
 
         // Versicherungsnummer setzen
         if (apiData.InsurancePolicyNumber) {
@@ -352,7 +343,7 @@ export default function KundendatenStep({ data, onUpdate, showValidation = false
           })
         }
 
-        return apiData;
+        return result;
       }
 
       return null;

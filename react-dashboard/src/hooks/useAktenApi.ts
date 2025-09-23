@@ -294,6 +294,32 @@ export const useAktenApi = () => {
         console.error('Error downloading PDF:', error)
         throw error
       }
+    },
+
+    // ZOnline API Aufruf
+    async callZOnlineAPI(kennzeichen: string) {
+      try {
+        const response = await authenticatedFetch(`${API_URL}/zonline`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            licenseNumber: kennzeichen,
+            requestor: import.meta.env.VITE_ZONLINE_REQUESTOR || '',
+            password: import.meta.env.VITE_ZONLINE_PASSWORD || ''
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+
+        return await response.json();
+      } catch (error) {
+        console.error('Z@Online API Fehler:', error);
+        throw error;
+      }
     }
   };
 };
