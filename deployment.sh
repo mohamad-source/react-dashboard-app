@@ -168,7 +168,7 @@ pm2 status
 echo ""
 echo "✅ Production deployment complete!"
 echo ""
-echo "🌍 Website: http://91.98.83.251/"
+echo "🌍 Website: https://inteliglas.de/"
 echo "🔗 Static Files: Served by PM2 on port 3000"
 echo "📡 API Server: Running with PM2 on port 3001"
 echo ""
