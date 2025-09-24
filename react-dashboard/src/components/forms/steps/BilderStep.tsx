@@ -354,11 +354,11 @@ export default function BilderStep({ isAkteSaved, akteId, onImagesUpdate }: Bild
                                 <div key={image.id} className="group relative">
                                     <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
                                         <img
-                                            src={`${API_BASE}/public/akte_bilder/akte_${akteId}/${image.filename}`}
+                                            src={`${API_BASE}/akte_bilder/akte_${akteId}/${image.filename}`}
                                             alt={image.original_name}
                                             className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
                                             onClick={() => setShowImageModal({
-                                                url: `${API_BASE}/public/akte_bilder/akte_${akteId}/${image.filename}`,
+                                                url: `${API_BASE}/akte_bilder/akte_${akteId}/${image.filename}`,
                                                 name: image.original_name
                                             })}
                                         />
@@ -370,7 +370,7 @@ export default function BilderStep({ isAkteSaved, akteId, onImagesUpdate }: Bild
                                             variant="secondary"
                                             size="sm"
                                             onClick={() => setShowImageModal({
-                                                url: `${API_BASE}/public/akte_bilder/akte_${akteId}/${image.filename}`,
+                                                url: `${API_BASE}/akte_bilder/akte_${akteId}/${image.filename}`,
                                                 name: image.original_name
                                             })}
                                             className="opacity-80 hover:opacity-100"

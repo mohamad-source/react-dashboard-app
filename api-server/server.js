@@ -256,7 +256,7 @@ const db = mysql.createPool({
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     const akteId = req.params.id;
-    const uploadPath = path.join(__dirname, '..', 'react-dashboard', 'public', 'akte_bilder', `akte_${akteId}`);
+    const uploadPath = path.join(__dirname, '..', 'akte_bilder', `akte_${akteId}`);
     
     if (!fs.existsSync(uploadPath)) {
       fs.mkdirSync(uploadPath, { recursive: true });
@@ -286,11 +286,6 @@ const upload = multer({
 });
 
 app.get('/api/akten', asyncHandler(async (req, res) => {
-  console.log('=== /api/akten route called ===')
-  console.log('Headers:', req.headers.authorization)
-  console.log('User:', req.user)
-  console.log('Authenticated:', req.authenticated)
-
   await db.execute('SELECT 1')
 
   const [tableCheck] = await db.execute('SHOW TABLES LIKE "akte"')
@@ -506,7 +501,7 @@ function generateAbtretungsPDF(akte, formData, signatureBuffer) {
       const signatureBase64 = `data:image/png;base64,${signatureBuffer.toString('base64')}`;
       doc.addImage(signatureBase64, 'PNG', 60, y - 15, 60, 20);
     } catch (error) {
-      logger.error('Database error inserting signature', { error: error.message, akteId: req.params.id });
+      logger.error('Database error inserting signature', { error: error.message, akteId: akte.id });
     }
   }
   
@@ -610,7 +605,15 @@ app.get('/api/akten/:id/bilder', requireClerkAuth, async (req, res) => {
 app.post('/api/akten/:id/bilder', requireClerkAuth, validateId, uploadLimiter, upload.array('images[]', 10), validateFileUpload, async (req, res) => {
   try {
     const akteId = req.params.id
+    const uploadDir = `/var/www/html/react-dashboard-app/react-dashboard/akte_bilder/akte_${akteId}`
+
     const files = req.files
+
+    // DEBUG hinzufügen:
+    console.log('=== BILDER UPLOAD DEBUG ===');
+    console.log('req.files:', files);
+    console.log('req.files length:', files ? files.length : 'undefined');
+    console.log('req.body:', req.body);
 
     if (!files || files.length === 0) {
       throw new Error('Keine Dateien hochgeladen')
@@ -625,14 +628,22 @@ app.post('/api/akten/:id/bilder', requireClerkAuth, validateId, uploadLimiter, u
     
     for (const file of files) {
       try {
-        await db.execute(
-          `INSERT INTO akte_bilder 
-           (akte_id, filename, original_name, file_size, mime_type, upload_date) 
-           VALUES (?, ?, ?, ?, ?, NOW())`,
+        console.log(`Attempting to insert file: ${file.filename}`);
+        console.log(`Values: akteId=${akteId}, filename=${file.filename}, original_name=${file.originalname}, size=${file.size}, mimetype=${file.mimetype}`);
+        
+        const [result] = await db.execute(
+          `INSERT INTO akte_bilder
+          (akte_id, filename, original_name, file_size, mime_type, upload_date)
+          VALUES (?, ?, ?, ?, ?, NOW())`,
           [akteId, file.filename, file.originalname, file.size, file.mimetype]
-        )
+        );
+        
+        console.log('Database insert successful:', result.insertId);
         uploadedCount++
       } catch (dbError) {
+        console.log('Database error:', dbError.message);
+        console.log('Error code:', dbError.code);
+        console.log('SQL State:', dbError.sqlState);
         logger.error('Database error saving uploaded file', { filename: file.filename, error: dbError.message, akteId: req.params.id })
         try {
           fs.unlinkSync(file.path)
@@ -683,7 +694,7 @@ app.delete('/api/akten/:id/bilder/:bildId', requireClerkAuth, async (req, res) =
     
     const bild = rows[0]
     
-    const filePath = path.join(__dirname, 'public', 'akte_bilder', `akte_${akteId}`, bild.filename)
+    const filePath = path.join(__dirname, '..', 'akte_bilder', `akte_${akteId}`, bild.filename)
     
     try {
       if (fs.existsSync(filePath)) {
@@ -720,7 +731,7 @@ app.delete('/api/akten/:id', async (req, res) => {
     try {
       await db.execute('DELETE FROM akte_bilder WHERE akte_id = ?', [akteId])
       
-      const bildOrdner = path.join(__dirname, '..', 'react-dashboard', 'public', 'akte_bilder', `akte_${akteId}`)
+      const bildOrdner = path.join(__dirname, '..', 'akte_bilder', `akte_${akteId}`)
       
       if (fs.existsSync(bildOrdner)) {
         fs.rmSync(bildOrdner, { recursive: true, force: true })
@@ -967,7 +978,7 @@ app.post('/api/akten/:id/dokumentation', upload.none(), async (req, res) => {
         let bildCounter = 0
         
         for (const bild of bilderRows) {
-          const bildPath = path.join(__dirname, '..', 'react-dashboard', 'public', 'akte_bilder', `akte_${akteId}`, bild.filename)
+          const bildPath = path.join(__dirname, '..', 'akte_bilder', `akte_${akteId}`, bild.filename)
           
           if (fs.existsSync(bildPath)) {
             try {
@@ -1184,6 +1195,8 @@ app.use(notFoundHandler);
 
 // Global error handler (must be last)
 app.use(errorHandler);
+
+app.use('/akte_bilder', express.static(path.join(__dirname, '..', 'akte_bilder')));
 
 const PORT = process.env.PORT || 3001;
 
